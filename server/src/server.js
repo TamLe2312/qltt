@@ -3,20 +3,34 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import { CONNECT_DB } from "./config/db.js";
+import { APIs } from "./routes/index.js";
 dotenv.config();
 
-const app = express();
-app.use(cors());
-app.use(cookieParser());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+const START_SERVER = async () => {
+  await CONNECT_DB();
+  console.log("Connected to DB successfully");
 
-app.get("/", function (req, res) {
-  res.send("Hello World!");
-});
+  const app = express();
+  app.use(cookieParser());
+  app.use(
+    cors({
+      origin: ["*"],
+      credentials: true,
+    })
+  );
+  app.use(bodyParser.urlencoded({ extended: false }));
+  app.use(bodyParser.json());
 
-// app.use("/api", APIs);
+  app.get("/", function (req, res) {
+    res.send("Hello World!");
+  });
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running at ${process.env.HOST_URL}`);
-});
+  app.use("/api", APIs);
+
+  app.listen(process.env.PORT, () => {
+    console.log(`Server is running at ${process.env.HOST_URL}`);
+  });
+};
+
+START_SERVER();
