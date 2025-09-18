@@ -36,10 +36,10 @@ const createOrder = async (req, res) => {
 const updateOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { customer_id, branch_id, notes, metadata } = req.body;
+    const { notes, metadata, products } = req.body;
     const result = await pool.query(
-      "UPDATE orders SET customer_id = $1, branch_id = $2, notes = $3, metadata = $4 WHERE order_id = $5 RETURNING *",
-      [customer_id, branch_id, notes, metadata, id]
+      `SELECT * FROM update_order($1, $2, $3, $4)`,
+      [id, notes, JSON.stringify(metadata), JSON.stringify(products)]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ msg: "Order not found" });
