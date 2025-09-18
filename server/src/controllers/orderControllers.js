@@ -1,10 +1,26 @@
 import pool from "../config/db.js";
-import { formatMoneyType } from "../helpers/formatMoneyType.js";
 
 const getAllOrders = async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM orders");
     res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+};
+
+const getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "SELECT * FROM orders WHERE order_id = $1",
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    res.json(result.rows[0]);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -42,7 +58,7 @@ const updateOrder = async (req, res) => {
       [id, notes, JSON.stringify(metadata), JSON.stringify(products)]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ msg: "Order not found" });
+      return res.status(404).json({ message: "Order not found" });
     }
     res.json(result.rows[0]);
   } catch (err) {
@@ -59,9 +75,9 @@ const deleteOrder = async (req, res) => {
       [id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ msg: "Order not found" });
+      return res.status(404).json({ message: "Order not found" });
     }
-    res.json({ msg: "Order deleted", order: result.rows[0] });
+    res.json({ message: "Order deleted", order: result.rows[0] });
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
@@ -73,4 +89,5 @@ export const orderController = {
   createOrder,
   updateOrder,
   deleteOrder,
+  getOrderById,
 };
