@@ -6,7 +6,7 @@ const getAllOrders = async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).send({ message: "Server Error", error: err.message });
   }
 };
 
@@ -20,18 +20,41 @@ const getOrderById = async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).send({ message: "Server Error", error: err.message });
   }
 };
 
 const createOrder = async (req, res) => {
   try {
-    const { customer_address_id, user_id, branch_id, note, products } =
-      req.body;
+    const {
+      customer_address_id,
+      user_id,
+      branch_id,
+      note,
+      products,
+      street,
+      ward,
+      district,
+      city,
+      country,
+      zipcode,
+    } = req.body;
 
-    const result = await pool.query(
-      `SELECT * FROM create_order($1, $2, $3, $4, $5)`,
-      [customer_address_id, user_id, branch_id, note, JSON.stringify(products)]
+    await pool.query(
+      `SELECT * FROM create_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        customer_address_id,
+        user_id,
+        branch_id,
+        note,
+        JSON.stringify(products),
+        street,
+        ward,
+        district,
+        city,
+        country,
+        zipcode,
+      ]
     );
 
     res.status(201).json({ message: "Order created" });
@@ -39,7 +62,7 @@ const createOrder = async (req, res) => {
     // res.status(201).json(req.body);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).send({ message: "Server Error", error: err.message });
   }
 };
 
@@ -85,7 +108,7 @@ const updateOrder = async (req, res) => {
     res.json({ message: "Order updated" });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).send({ message: "Server Error", error: err.message });
   }
 };
 
@@ -102,7 +125,7 @@ const deleteOrder = async (req, res) => {
     res.json({ message: "Order deleted" });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).send({ message: "Server Error", error: err.message });
   }
 };
 
