@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { CONNECT_DB } from "./config/db.js";
@@ -19,8 +18,9 @@ const START_SERVER = async () => {
       credentials: true,
     })
   );
-  app.use(bodyParser.urlencoded({ extended: false }));
-  app.use(bodyParser.json());
+
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   app.get("/", function (req, res) {
     res.send("Hello World!");
