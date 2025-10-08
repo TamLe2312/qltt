@@ -7,7 +7,8 @@ const getAllCategories = async (req, res) => {
     const { limit, page } = req.query;
     const offset = page && limit ? (page - 1) * limit : 0;
     const result = await pool.query(
-      `SELECT * FROM get_all_categories_hierarchy();`
+      `SELECT * FROM get_all_categories_hierarchy_paginated($1, $2)`,
+      [limit || 20, offset]
     );
 
     const trees = buildTree(result.rows);

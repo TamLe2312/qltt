@@ -1,4 +1,7 @@
-CREATE OR REPLACE FUNCTION get_all_categories_hierarchy()
+CREATE OR REPLACE FUNCTION get_all_categories_hierarchy_paginated(
+    p_limit INT,
+    p_offset INT
+)
 RETURNS TABLE (
     category_id BIGINT,
     name TEXT,
@@ -25,7 +28,7 @@ BEGIN
             ct.path || c.category_id
         FROM categories c
         INNER JOIN category_tree ct ON c.parent_id = ct.category_id
-        WHERE NOT c.category_id = ANY(ct.path)
+        WHERE NOT c.category_id = ANY(ct.path) -- Chống lặp vô hạn
     )
     SELECT 
         ct.category_id,
@@ -33,6 +36,8 @@ BEGIN
         ct.parent_id,
         ct.path
     FROM category_tree ct
-    ORDER BY ct.path;
+    ORDER BY ct.path
+    LIMIT p_limit      -- Áp dụng LIMIT ở đây
+    OFFSET p_offset;   -- Áp dụng OFFSET ở đây
 END;
 $$ LANGUAGE plpgsql;

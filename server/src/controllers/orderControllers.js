@@ -2,7 +2,7 @@ import pool from "../config/db.js";
 
 const getAllOrders = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM orders");
+    const result = await pool.query("SELECT * FROM orders ORDER BY id");
     res.json(result.rows);
   } catch (err) {
     console.error(err.message);

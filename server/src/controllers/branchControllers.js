@@ -8,6 +8,7 @@ const getAllBranches = async (req, res) => {
     const result = await pool.query(
       `SELECT * 
       FROM branches
+      ORDER BY id
       LIMIT $1 OFFSET $2`,
       [limit || 20, offset]
     );

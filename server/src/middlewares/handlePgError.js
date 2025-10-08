@@ -1,3 +1,5 @@
+const e = require("express");
+
 function handlePgError(err, res) {
   if (err.code === "23514") {
     switch (err.constraint) {
@@ -27,6 +29,9 @@ function handlePgError(err, res) {
       case "country_not_empty":
         return res.status(400).json({ error: "Quốc gia không được để trống" });
 
+      case "inventories_quantity_positive":
+        return res.status(400).json({ error: "Số lượng phải lớn hơn 0" });
+
       case "zipcode_not_empty":
         return res
           .status(400)
@@ -42,7 +47,12 @@ function handlePgError(err, res) {
   }
 
   if (err.code === "23502") {
-    return res.status(400).json({ error: `${err.column} không được null` });
+    return res.status(400).json({ error: `${err.column} không được trống` });
+  }
+  if (err.code === "22P02") {
+    return res.status(400).json({
+      error: "Một trường dữ liệu số không hợp lệ.",
+    });
   }
 
   console.error(err);

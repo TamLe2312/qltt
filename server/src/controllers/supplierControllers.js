@@ -8,6 +8,7 @@ const getAllSuppliers = async (req, res) => {
     const result = await pool.query(
       `SELECT * 
       FROM suppliers
+      ORDER BY supplier_id
       LIMIT $1 OFFSET $2`,
       [limit || 20, offset]
     );
