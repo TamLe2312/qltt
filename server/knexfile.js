@@ -12,7 +12,7 @@ module.exports = {
       port: process.env.PORT_DB,
       user: process.env.USER_DB,
       password: process.env.PASSWORD_DB,
-      database: process.env.DATABASE_DB,
+      database: process.env.NAME_DB,
     },
     migrations: {
       tableName: "knex_migrations",

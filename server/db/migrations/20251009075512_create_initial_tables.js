@@ -136,8 +136,8 @@ exports.up = function (knex) {
         product_id BIGINT REFERENCES products(id) NOT NULL,
         quantity INT NOT NULL,
         CONSTRAINT inventories_quantity_positive CHECK (quantity >= 0),
-        reserved_quantity INT DEFAULT 0,
-        CONSTRAINT inventories_reserved_quantity_positive CHECK (reserved_quantity >= 0) -- SỬA LỖI Ở ĐÂY
+        reserved_stock INT DEFAULT 0,
+        CONSTRAINT inventories_reserved_stock_positive CHECK (reserved_stock >= 0)
     ) INHERITS (meta_time);
 
     CREATE TABLE roles (
