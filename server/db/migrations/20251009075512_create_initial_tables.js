@@ -74,7 +74,8 @@ exports.up = function (knex) {
 
     CREATE TABLE customer_address (
         id BIGSERIAL PRIMARY KEY,
-        user_id BIGINT REFERENCES users(id) NOT NULL
+        user_id BIGINT REFERENCES users(id) NOT NULL,
+		is_default BOOLEAN DEFAULT FALSE
     ) INHERITS (address, meta_time);
 
     CREATE TABLE categories (
@@ -84,6 +85,7 @@ exports.up = function (knex) {
         parent_id BIGINT DEFAULT NULL REFERENCES categories(id) ON DELETE SET NULL
     ) INHERITS (meta_time);
 
+    CREATE TYPE product_status AS ENUM ('available', 'out_of_stock', 'discontinued');
     CREATE TABLE products (
         id BIGSERIAL PRIMARY KEY,
         sku TEXT UNIQUE NOT NULL,
@@ -94,8 +96,7 @@ exports.up = function (knex) {
         price NUMERIC(14,2) NOT NULL,
         avatar TEXT NOT NULL,
         CONSTRAINT avatar_not_empty CHECK (avatar <> ''),
-        status TEXT NOT NULL,
-        CONSTRAINT status_not_empty CHECK (status <> ''),
+        status product_status NOT NULL DEFAULT 'available',
         images TEXT[],
         unit_of_measure TEXT NOT NULL,
         CONSTRAINT unit_of_measure_not_empty CHECK (unit_of_measure <> ''),
@@ -104,16 +105,16 @@ exports.up = function (knex) {
         CONSTRAINT description_not_empty CHECK (description <> '')
     ) INHERITS (meta_time);
 
+    CREATE TYPE order_status AS ENUM ('pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded');
     CREATE TABLE orders (
         id BIGSERIAL PRIMARY KEY,
         order_code TEXT UNIQUE,
-        customer_address_id BIGINT REFERENCES customer_address(id) NOT NULL,
         user_id BIGINT REFERENCES users(id) NOT NULL,
         branch_id BIGINT REFERENCES branches(id) NOT NULL,
-        status TEXT DEFAULT 'pending', -- SỬA LỖI Ở ĐÂY
+        status order_status NOT NULL DEFAULT 'pending',
         note TEXT,
         total_amount NUMERIC(14,2)
-    ) INHERITS (meta_time);
+    ) INHERITS (meta_time, address);
 
     CREATE TABLE order_details (
         id BIGSERIAL PRIMARY KEY,
@@ -173,7 +174,7 @@ exports.up = function (knex) {
         revoked BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
     );
-  `);
+    `);
 };
 
 /**
@@ -210,5 +211,7 @@ exports.down = function (knex) {
 
     -- Cuối cùng, xóa kiểu dữ liệu ENUM đã tạo
     DROP TYPE IF EXISTS user_status;
+    DROP TYPE IF EXISTS product_status;
+    DROP TYPE IF EXISTS order_status;
   `);
 };

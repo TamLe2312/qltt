@@ -9,7 +9,7 @@ exports.up = function (knex) {
     p_offset INT
 )
 RETURNS TABLE (
-    category_id BIGINT,
+    id BIGINT,
     name TEXT,
     parent_id BIGINT,
     path BIGINT[]
@@ -18,26 +18,26 @@ BEGIN
     RETURN QUERY
     WITH RECURSIVE category_tree AS (
         SELECT 
-            c.category_id,
+            c.id,
             c.name,
             c.parent_id,
-            ARRAY[c.category_id] AS path
+            ARRAY[c.id] AS path
         FROM categories c
         WHERE c.parent_id IS NULL
 
         UNION ALL
 
         SELECT 
-            c.category_id,
+            c.id,
             c.name,
             c.parent_id,
-            ct.path || c.category_id
+            ct.path || c.id
         FROM categories c
-        INNER JOIN category_tree ct ON c.parent_id = ct.category_id
-        WHERE NOT c.category_id = ANY(ct.path) -- Chống lặp vô hạn
+        INNER JOIN category_tree ct ON c.parent_id = ct.id
+        WHERE NOT c.id = ANY(ct.path) -- Chống lặp vô hạn
     )
     SELECT 
-        ct.category_id,
+        ct.id,
         ct.name,
         ct.parent_id,
         ct.path
