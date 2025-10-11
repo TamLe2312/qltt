@@ -134,6 +134,7 @@ exports.up = function (knex) {
     CREATE TABLE inventories (
         id BIGSERIAL PRIMARY KEY,
         supplier_id BIGINT REFERENCES suppliers(id) NOT NULL,
+        branch_id BIGINT REFERENCES branches(id) NOT NULL,
         product_id BIGINT REFERENCES products(id) NOT NULL,
         quantity INT NOT NULL,
         CONSTRAINT inventories_quantity_positive CHECK (quantity >= 0),

@@ -161,6 +161,7 @@ exports.seed = async function (knex) {
   const inventoriesToInsert = products.map((p) => ({
     product_id: p.id,
     supplier_id: faker.helpers.arrayElement(suppliers).id,
+    branch_id: faker.helpers.arrayElement(branches).id,
     quantity: faker.number.int({ min: 50, max: 200 }),
   }));
   await knex("inventories").insert(inventoriesToInsert);
