@@ -39,6 +39,13 @@ const Suppliers: React.FC = () => {
       setIsModalOpen(false);
       resetForm();
     },
+    onError: (error: any) => {
+      handleToast(
+        "error",
+        `${error.response?.data?.error || "Failed to create supplier"}`
+      );
+      console.error(error);
+    },
   });
 
   const updateSupplierMutation = useMutation({
@@ -46,8 +53,16 @@ const Suppliers: React.FC = () => {
       api.updateSupplier(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      handleToast("success", "Supplier updated successfully");
       setIsModalOpen(false);
       resetForm();
+    },
+    onError: (error: any) => {
+      handleToast(
+        "error",
+        `${error.response?.data?.error || "Failed to update supplier"}`
+      );
+      console.error(error);
     },
   });
 

@@ -236,7 +236,6 @@ export const api = {
       const response = await request.post("suppliers/create ", supplier);
       return response;
     } catch (error) {
-      console.error("Error creating supplier:", error);
       throw error;
     }
   },
@@ -246,7 +245,6 @@ export const api = {
       const response = await request.put(`suppliers/update/${id}`, supplier);
       return response.data;
     } catch (error) {
-      console.error("Error updating supplier:", error);
       throw error;
     }
   },
@@ -256,7 +254,6 @@ export const api = {
       const response = await request.delete(`suppliers/delete/${id}`);
       return response.data;
     } catch (error) {
-      console.error("Error deleting supplier:", error);
       throw error;
     }
   },
