@@ -8,7 +8,7 @@ const getAllSuppliers = async (req, res) => {
     const result = await pool.query(
       `SELECT * 
       FROM suppliers
-      ORDER BY supplier_id
+      ORDER BY id
       LIMIT $1 OFFSET $2`,
       [limit || 20, offset]
     );
@@ -60,7 +60,7 @@ const updateSupplier = async (req, res) => {
     const result = await pool.query(
       `UPDATE suppliers
         SET name = $1, street = $2, ward = $3, district = $4, city = $5, country = $6, zipcode = $7, email = $8, phone = $9
-        WHERE supplier_id = $10
+        WHERE id = $10
         RETURNING *`,
       [name, street, ward, district, city, country, zipcode, email, phone, id]
     );
@@ -77,7 +77,7 @@ const deleteSupplier = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      "DELETE FROM suppliers WHERE supplier_id = $1 RETURNING *",
+      "DELETE FROM suppliers WHERE id = $1 RETURNING *",
       [id]
     );
     if (result.rows.length === 0) {
