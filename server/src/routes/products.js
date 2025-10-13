@@ -1,6 +1,6 @@
-import express from "express";
-import { productController } from "../controllers/productControllers.js";
-import { uploadImage } from "../middlewares/multerConfig.js";
+const express = require("express");
+const { productController } = require("../controllers/productControllers.js");
+const { uploadImage } = require("../middlewares/multerConfig.js");
 const Router = express.Router();
 
 Router.get("/", productController.getAllProducts);
@@ -22,4 +22,4 @@ Router.put(
 );
 Router.delete("/delete/:id", productController.deleteProduct);
 
-export const productsApi = Router;
+module.exports = { productsApi: Router };

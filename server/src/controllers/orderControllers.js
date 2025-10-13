@@ -1,5 +1,5 @@
-import pool from "../config/db.js";
-import handlePgError from "../middlewares/handlePgError.js";
+const pool = require("../config/db.js");
+const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllOrders = async (req, res) => {
   try {
@@ -102,10 +102,12 @@ const deleteOrder = async (req, res) => {
   }
 };
 
-export const orderController = {
-  getAllOrders,
-  createOrder,
-  updateOrder,
-  deleteOrder,
-  getOrderById,
+module.exports = {
+  orderController: {
+    getAllOrders,
+    createOrder,
+    updateOrder,
+    deleteOrder,
+    getOrderById,
+  },
 };

@@ -19,4 +19,4 @@ function buildTree(categories) {
   return roots;
 }
 
-export default buildTree;
+module.exports = buildTree;

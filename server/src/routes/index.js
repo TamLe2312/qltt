@@ -1,13 +1,13 @@
-import express from "express";
-import { branchesApi } from "./branches.js";
-import { ordersApi } from "./orders.js";
-import { reportsApi } from "./reports.js";
-import { inventoriesApi } from "./inventories.js";
-import { suppliersApi } from "./suppliers.js";
-import { categoriesApi } from "./categories.js";
-import { productsApi } from "./products.js";
-import { usersApi } from "./users.js";
-import { addressesApi } from "./addresses.js";
+const express = require("express");
+const { branchesApi } = require("./branches.js");
+const { ordersApi } = require("./orders.js");
+const { reportsApi } = require("./reports.js");
+const { inventoriesApi } = require("./inventories.js");
+const { suppliersApi } = require("./suppliers.js");
+const { categoriesApi } = require("./categories.js");
+const { productsApi } = require("./products.js");
+const { usersApi } = require("./users.js");
+const { addressesApi } = require("./addresses.js");
 
 const Router = express.Router();
 
@@ -25,4 +25,4 @@ Router.get("/", (req, res) => {
   res.send("Hello from API!");
 });
 
-export const APIs = Router;
+module.exports = { APIs: Router };

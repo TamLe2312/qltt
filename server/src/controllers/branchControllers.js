@@ -1,5 +1,5 @@
-import pool from "../config/db.js";
-import handlePgError from "../middlewares/handlePgError.js";
+const pool = require("../config/db.js");
+const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllBranches = async (req, res) => {
   try {
@@ -88,9 +88,11 @@ const deleteBranch = async (req, res) => {
   }
 };
 
-export const branchController = {
-  getAllBranches,
-  createBranch,
-  updateBranch,
-  deleteBranch,
+module.exports = {
+  branchController: {
+    getAllBranches,
+    createBranch,
+    updateBranch,
+    deleteBranch,
+  },
 };

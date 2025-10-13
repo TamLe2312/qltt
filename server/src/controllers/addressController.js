@@ -1,5 +1,5 @@
-import pool from "../config/db.js";
-import handlePgError from "../middlewares/handlePgError.js";
+const pool = require("../config/db.js");
+const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllAddresses = async (req, res) => {
   try {
@@ -87,9 +87,11 @@ const deleteAddress = async (req, res) => {
   }
 };
 
-export const addressController = {
-  getAllAddresses,
-  createAddress,
-  updateAddress,
-  deleteAddress,
+module.exports = {
+  addressController: {
+    getAllAddresses,
+    createAddress,
+    updateAddress,
+    deleteAddress,
+  },
 };

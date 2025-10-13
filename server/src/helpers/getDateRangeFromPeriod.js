@@ -35,4 +35,4 @@ function getDateRangeFromPeriod(period) {
   return { startDate, endDate };
 }
 
-export { getDateRangeFromPeriod };
+module.exports = { getDateRangeFromPeriod };

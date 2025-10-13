@@ -7,6 +7,7 @@ import Button from "../components/ui/Button";
 import Table from "../components/ui/Table";
 import Modal from "../components/ui/Modal";
 import Input from "../components/ui/Input";
+import { handleToast } from "../hooks/toast";
 
 const Suppliers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,6 +35,7 @@ const Suppliers: React.FC = () => {
     mutationFn: api.createSupplier,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      handleToast("success", "Supplier created successfully");
       setIsModalOpen(false);
       resetForm();
     },
@@ -53,6 +55,7 @@ const Suppliers: React.FC = () => {
     mutationFn: api.deleteSupplier,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      handleToast("success", "Supplier deleted successfully");
     },
   });
 

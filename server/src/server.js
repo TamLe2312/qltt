@@ -1,9 +1,10 @@
-import express from "express";
-import cors from "cors";
-import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
-import { CONNECT_DB } from "./config/db.js";
-import { APIs } from "./routes/index.js";
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const dotenv = require("dotenv");
+const { CONNECT_DB } = require("./config/db.js");
+const { APIs } = require("./routes/index.js");
+
 dotenv.config();
 
 const START_SERVER = async () => {

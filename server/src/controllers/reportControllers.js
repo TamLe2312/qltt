@@ -1,6 +1,8 @@
-import pool from "../config/db.js";
-import handlePgError from "../middlewares/handlePgError.js";
-import { getDateRangeFromPeriod } from "../helpers/getDateRangeFromPeriod.js";
+const pool = require("../config/db.js");
+const handlePgError = require("../middlewares/handlePgError.js");
+const {
+  getDateRangeFromPeriod,
+} = require("../helpers/getDateRangeFromPeriod.js");
 
 const getSalesReport = async (req, res) => {
   try {
@@ -53,6 +55,8 @@ const getSalesReport = async (req, res) => {
   }
 };
 
-export const reportController = {
-  getSalesReport,
+module.exports = {
+  reportController: {
+    getSalesReport,
+  },
 };

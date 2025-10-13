@@ -1,6 +1,6 @@
-import pool from "../config/db.js";
-import handlePgError from "../middlewares/handlePgError.js";
-import bcrypt from "bcrypt";
+const pool = require("../config/db.js");
+const handlePgError = require("../middlewares/handlePgError.js");
+const bcrypt = require("bcrypt");
 
 const getAllUsers = async (req, res) => {
   try {
@@ -129,10 +129,12 @@ const deleteUser = async (req, res) => {
   }
 };
 
-export const userController = {
-  getAllUsers,
-  getUserById,
-  createUser,
-  updateUser,
-  deleteUser,
+module.exports = {
+  userController: {
+    getAllUsers,
+    getUserById,
+    createUser,
+    updateUser,
+    deleteUser,
+  },
 };

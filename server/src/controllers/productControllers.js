@@ -1,6 +1,6 @@
-import pool from "../config/db.js";
-import handlePgError from "../middlewares/handlePgError.js";
-import { deleteImages } from "../middlewares/multerConfig.js";
+const pool = require("../config/db.js");
+const handlePgError = require("../middlewares/handlePgError.js");
+const { deleteImages } = require("../middlewares/multerConfig.js");
 
 const getAllProducts = async (req, res) => {
   try {
@@ -201,9 +201,11 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-export const productController = {
-  getAllProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct,
+module.exports = {
+  productController: {
+    getAllProducts,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+  },
 };

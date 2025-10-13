@@ -1,12 +1,6 @@
-// Mock API service for demo purposes
-// In a real application, this would make actual HTTP requests
-
 import type { Product, Order, Customer, Branch, Supplier } from "../types";
 import request from "../ults/request";
-export const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:3001/api";
 
-// Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Mock data
@@ -239,8 +233,8 @@ export const api = {
 
   createSupplier: async (supplier: Omit<Supplier, "id">) => {
     try {
-      const response = await request.post("suppliers", supplier);
-      return response.data;
+      const response = await request.post("suppliers/create ", supplier);
+      return response;
     } catch (error) {
       console.error("Error creating supplier:", error);
       throw error;

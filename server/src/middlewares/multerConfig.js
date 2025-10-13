@@ -1,16 +1,12 @@
-import multer from "multer";
-import path from "path";
-import fs from "fs/promises";
-import { fileURLToPath } from "url";
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs/promises");
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export const upload = multer();
+const upload = multer();
 
 const storageImage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadPath = "public/images/";
+    const uploadPath = path.join(__dirname, "..", "public", "images");
     fs.mkdir(uploadPath, { recursive: true }).then(() => {
       cb(null, uploadPath);
     });
@@ -31,7 +27,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-export const uploadImage = multer({
+const uploadImage = multer({
   storage: storageImage,
   fileFilter: fileFilter,
   limits: {
@@ -39,7 +35,7 @@ export const uploadImage = multer({
   },
 });
 
-export const deleteImage = async (fileName) => {
+const deleteImage = async (fileName) => {
   if (!fileName) return;
   try {
     const filePath = path.join(
@@ -56,10 +52,17 @@ export const deleteImage = async (fileName) => {
   }
 };
 
-export const deleteImages = async (filenames) => {
+const deleteImages = async (filenames) => {
   if (!Array.isArray(filenames) || filenames.length === 0) {
     return;
   }
 
   await Promise.all(filenames.map((filename) => deleteImage(filename)));
+};
+
+module.exports = {
+  uploadImage,
+  upload,
+  deleteImage,
+  deleteImages,
 };

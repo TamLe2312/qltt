@@ -1,6 +1,8 @@
-import express from "express";
-import { inventoriesController } from "../controllers/inventoriesControllers.js";
-import { upload } from "../middlewares/multerConfig.js";
+const express = require("express");
+const {
+  inventoriesController,
+} = require("../controllers/inventoriesControllers.js");
+const { upload } = require("../middlewares/multerConfig.js");
 
 const Router = express.Router();
 
@@ -9,4 +11,4 @@ Router.post("/create", upload.none(), inventoriesController.createInventory);
 Router.put("/update/:id", upload.none(), inventoriesController.updateInventory);
 Router.delete("/delete/:id", inventoriesController.deleteInventory);
 
-export const inventoriesApi = Router;
+module.exports = { inventoriesApi: Router };

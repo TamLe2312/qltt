@@ -1,6 +1,6 @@
-import pool from "../config/db.js";
-import buildTree from "../helpers/buildTree.js";
-import handlePgError from "../middlewares/handlePgError.js";
+const pool = require("../config/db.js");
+const buildTree = require("../helpers/buildTree.js");
+const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllCategories = async (req, res) => {
   try {
@@ -71,9 +71,11 @@ const deleteCategory = async (req, res) => {
   }
 };
 
-export const categoryController = {
-  getAllCategories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
+module.exports = {
+  categoryController: {
+    getAllCategories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+  },
 };
