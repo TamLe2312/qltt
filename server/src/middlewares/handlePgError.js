@@ -43,7 +43,16 @@ function handlePgError(err, res) {
   }
 
   if (err.code === "23505") {
-    return res.status(400).json({ error: "Dữ liệu đã tồn tại" });
+    switch (err.constraint) {
+      case "users_username_key":
+        return res.status(400).json({ error: "Username đã tồn tại" });
+
+      case "unique_email":
+        return res.status(400).json({ error: "Email đã tồn tại" });
+
+      default:
+        return res.status(400).json({ error: "Dữ liệu đã tồn tại" });
+    }
   }
 
   if (err.code === "23502") {

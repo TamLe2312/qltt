@@ -5,6 +5,9 @@ import { reportsApi } from "./reports.js";
 import { inventoriesApi } from "./inventories.js";
 import { suppliersApi } from "./suppliers.js";
 import { categoriesApi } from "./categories.js";
+import { productsApi } from "./products.js";
+import { usersApi } from "./users.js";
+import { addressesApi } from "./addresses.js";
 
 const Router = express.Router();
 
@@ -14,6 +17,9 @@ Router.use("/reports", reportsApi);
 Router.use("/inventories", inventoriesApi);
 Router.use("/suppliers", suppliersApi);
 Router.use("/categories", categoriesApi);
+Router.use("/products", productsApi);
+Router.use("/users", usersApi);
+Router.use("/addresses", addressesApi);
 
 Router.get("/", (req, res) => {
   res.send("Hello from API!");
