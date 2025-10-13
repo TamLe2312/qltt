@@ -119,7 +119,7 @@ const Products: React.FC = () => {
       {/* Products Table */}
       <Card>
         <Table
-          data={products || []}
+          data={products?.data || []}
           columns={columns}
           loading={isLoading}
           emptyMessage="No products found"

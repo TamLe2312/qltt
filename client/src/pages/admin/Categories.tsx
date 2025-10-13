@@ -115,14 +115,14 @@ const Categories: React.FC = () => {
         {/* Categories Table */}
         <Card>
           <TableCategory
-            data={categories || []}
+            data={categories?.data || []}
             loading={isLoading}
             emptyMessage="No categories found"
           />
         </Card>
         <Card>
           <DropdownSelect
-            data={categories || []}
+            data={categories?.data || []}
             value="1"
             valueKey="id"
             labelKey="name"

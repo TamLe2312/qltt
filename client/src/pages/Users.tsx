@@ -123,7 +123,7 @@ const Users: React.FC = () => {
       {/* Users Table */}
       <Card>
         <Table
-          data={users || []}
+          data={users?.data || []}
           columns={columns}
           loading={isLoading}
           emptyMessage="No users found"

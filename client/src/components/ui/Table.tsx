@@ -1,14 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from "react";
 
 interface Column<T> {
   key: keyof T | string;
   title: string;
   render?: (value: any, item: T) => React.ReactNode;
   width?: string;
-  align?: 'left' | 'center' | 'right';
+  align?: "left" | "center" | "right";
   sortable?: boolean;
   // Optional accessor for sorting when display value is formatted or nested
-  sortAccessor?: (item: T) => string | number | Date | boolean | null | undefined;
+  sortAccessor?: (
+    item: T
+  ) => string | number | Date | boolean | null | undefined;
 }
 
 interface TableProps<T> {
@@ -21,22 +23,23 @@ interface TableProps<T> {
   // Provide a stable key for each row to ensure correct reordering animations
   getRowKey?: (item: T, index: number) => React.Key;
   // Sorting
-  defaultSort?: { key: string; order: 'asc' | 'desc' };
-  onSortChange?: (key: string, order: 'asc' | 'desc') => void;
+  defaultSort?: { key: string; order: "asc" | "desc" };
+  onSortChange?: (key: string, order: "asc" | "desc") => void;
   // Pagination (client-side). If not provided, internal pagination will be used.
   page?: number;
   pageSize?: number;
   total?: number; // total items (defaults to data.length for client-side pagination)
   onPageChange?: (page: number) => void;
+  handlePageSizeChange?: (size: number) => void;
 }
 
 function Table<T extends Record<string, any>>({
   data,
   columns,
   loading = false,
-  emptyMessage = 'No data available',
+  emptyMessage = "No data available",
   onRowClick,
-  className = '',
+  className = "",
   getRowKey,
   defaultSort,
   onSortChange,
@@ -44,16 +47,17 @@ function Table<T extends Record<string, any>>({
   pageSize,
   total,
   onPageChange,
+  handlePageSizeChange = () => {},
 }: TableProps<T>) {
   // Internal pagination fallback
   const [internalPage, setInternalPage] = useState<number>(1);
-  const [internalPageSize] = useState<number>(pageSize || 10);
   const activePage = page ?? internalPage;
-  const activePageSize = pageSize ?? internalPageSize;
 
   // Sorting state
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSort?.key);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(defaultSort?.order || 'asc');
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(
+    defaultSort?.order || "asc"
+  );
 
   // const handleHeaderClick = (col: Column<T>) => {
   //   if (!col.sortable) return;
@@ -75,31 +79,34 @@ function Table<T extends Record<string, any>>({
   // };
 
   const handleHeaderClick = (col: Column<T>) => {
-  if (!col.sortable) return;
-  const key = (typeof col.key === 'string' ? col.key : String(col.key)) as string;
+    if (!col.sortable) return;
+    const key = (
+      typeof col.key === "string" ? col.key : String(col.key)
+    ) as string;
 
-  if (sortKey === key) {
-    // Nếu đang cùng cột -> chỉ đảo chiều
-    const toggled = sortOrder === 'asc' ? 'desc' : 'asc';
-    setSortOrder(toggled);
-    onSortChange?.(key, toggled);
-  } else {
-    // Nếu sang cột khác -> đặt sortKey và sortOrder cùng lúc (bắt buộc)
-    setSortKey(key);
-    setSortOrder('asc');
+    if (sortKey === key) {
+      // Nếu đang cùng cột -> chỉ đảo chiều
+      const toggled = sortOrder === "asc" ? "desc" : "asc";
+      setSortOrder(toggled);
+      onSortChange?.(key, toggled);
+    } else {
+      // Nếu sang cột khác -> đặt sortKey và sortOrder cùng lúc (bắt buộc)
+      setSortKey(key);
+      setSortOrder("asc");
 
-    // ⚠️ KHẮC PHỤC LỖI: gọi onSortChange ngay sau khi set state, không nằm trong callback
-    // vì React batch state khiến lần click đầu bị “bỏ qua”
-    onSortChange?.(key, 'asc');
+      // ⚠️ KHẮC PHỤC LỖI: gọi onSortChange ngay sau khi set state, không nằm trong callback
+      // vì React batch state khiến lần click đầu bị “bỏ qua”
+      onSortChange?.(key, "asc");
 
-    if (!onPageChange) setInternalPage(1);
-  }
-};
-
+      if (!onPageChange) setInternalPage(1);
+    }
+  };
 
   const sortedData: T[] = useMemo(() => {
     if (!sortKey) return data;
-    const column = columns.find(c => (typeof c.key === 'string' ? c.key : String(c.key)) === sortKey);
+    const column = columns.find(
+      (c) => (typeof c.key === "string" ? c.key : String(c.key)) === sortKey
+    );
     if (!column) return data;
     const accessor = (item: T) => {
       if (column.sortAccessor) return column.sortAccessor(item);
@@ -111,28 +118,28 @@ function Table<T extends Record<string, any>>({
       const va = accessor(a);
       const vb = accessor(b);
       if (va == null && vb == null) return 0;
-      if (va == null) return sortOrder === 'asc' ? -1 : 1;
-      if (vb == null) return sortOrder === 'asc' ? 1 : -1;
+      if (va == null) return sortOrder === "asc" ? -1 : 1;
+      if (vb == null) return sortOrder === "asc" ? 1 : -1;
       const na = va instanceof Date ? va.getTime() : (va as any);
       const nb = vb instanceof Date ? vb.getTime() : (vb as any);
-      if (na < nb) return sortOrder === 'asc' ? -1 : 1;
-      if (na > nb) return sortOrder === 'asc' ? 1 : -1;
+      if (na < nb) return sortOrder === "asc" ? -1 : 1;
+      if (na > nb) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
     return copy;
   }, [data, sortKey, sortOrder, columns]);
 
   const totalItems = total ?? sortedData.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / activePageSize));
+  const totalPages = Math.max(1, Math.ceil(totalItems / (pageSize || 20)));
   const pageClamped = Math.min(Math.max(1, activePage), totalPages);
 
   const paginatedData: T[] = useMemo(() => {
-    const start = (pageClamped - 1) * activePageSize;
-    const end = start + activePageSize;
+    const start = (pageClamped - 1) * (pageSize || 20);
+    const end = start + (pageSize || 20);
     // If external pagination provided (total > data.length), assume data already sliced
     if (total && total > data.length) return sortedData;
     return sortedData.slice(start, end);
-  }, [sortedData, pageClamped, activePageSize, total, data.length]);
+  }, [sortedData, pageClamped, pageSize, total, data.length]);
 
   const changePage = (next: number) => {
     if (onPageChange) {
@@ -163,32 +170,55 @@ function Table<T extends Record<string, any>>({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${className}`}>
+    <div
+      className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${className}`}
+    >
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               {columns.map((column, index) => {
                 const isSortable = !!column.sortable;
-                const key = (typeof column.key === 'string' ? column.key : String(column.key)) as string;
+                const key = (
+                  typeof column.key === "string"
+                    ? column.key
+                    : String(column.key)
+                ) as string;
                 const isActive = sortKey === key;
-                const arrow = !isSortable
-                  ? null
-                  : (
-                    <span className={`ml-1 inline-block transition-transform ${isActive && sortOrder === 'desc' ? 'rotate-180' : ''}`}>
-                      {/* chevron up */}
-                      <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 6l6 6H4l6-6z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                  );
+                const arrow = !isSortable ? null : (
+                  <span
+                    className={`ml-1 inline-block transition-transform ${
+                      isActive && sortOrder === "desc" ? "rotate-180" : ""
+                    }`}
+                  >
+                    {/* chevron up */}
+                    <svg
+                      className="w-3 h-3 text-gray-400"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 6l6 6H4l6-6z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </span>
+                );
                 return (
                   <th
                     key={index}
                     className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                      column.align === 'center' ? 'text-center' : 
-                      column.align === 'right' ? 'text-right' : 'text-left'
-                    } ${isSortable ? 'cursor-pointer select-none hover:text-gray-700' : ''}`}
+                      column.align === "center"
+                        ? "text-center"
+                        : column.align === "right"
+                        ? "text-right"
+                        : "text-left"
+                    } ${
+                      isSortable
+                        ? "cursor-pointer select-none hover:text-gray-700"
+                        : ""
+                    }`}
                     style={{ width: column.width }}
                     onClick={() => handleHeaderClick(column)}
                   >
@@ -205,20 +235,26 @@ function Table<T extends Record<string, any>>({
             {paginatedData.map((item, rowIndex) => (
               <tr
                 key={getRowKey ? getRowKey(item, rowIndex) : rowIndex}
-                className={`hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''}`}
+                className={`hover:bg-gray-50 ${
+                  onRowClick ? "cursor-pointer" : ""
+                }`}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((column, colIndex) => {
-                  const value = typeof column.key === 'string' 
-                    ? item[column.key] 
-                    : item[column.key as keyof T];
-                  
+                  const value =
+                    typeof column.key === "string"
+                      ? item[column.key]
+                      : item[column.key as keyof T];
+
                   return (
                     <td
                       key={colIndex}
                       className={`px-6 py-4 whitespace-nowrap text-sm ${
-                        column.align === 'center' ? 'text-center' : 
-                        column.align === 'right' ? 'text-right' : 'text-left'
+                        column.align === "center"
+                          ? "text-center"
+                          : column.align === "right"
+                          ? "text-right"
+                          : "text-left"
                       }`}
                     >
                       {column.render ? column.render(value, item) : value}
@@ -235,14 +271,29 @@ function Table<T extends Record<string, any>>({
       <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-sm">
         <div className="text-gray-600">
           {totalItems === 0 ? (
-            '0 results'
+            "0 results"
           ) : (
             <>
-              Showing <span className="font-medium">{(pageClamped - 1) * activePageSize + 1}</span>
-              {' '}to{' '}
-              <span className="font-medium">{Math.min(pageClamped * activePageSize, totalItems)}</span>
-              {' '}of{' '}
-              <span className="font-medium">{totalItems}</span> results
+              Showing{" "}
+              <span className="font-medium">
+                {(pageClamped - 1) * (pageSize || 20) + 1}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium">
+                {Math.min(pageClamped * (pageSize || 20), totalItems)}
+              </span>{" "}
+              with limit{" "}
+              <select
+                className="border border-gray-300 rounded-md px-2 py-1"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>{" "}
+              of <span className="font-medium">{totalItems}</span> results
             </>
           )}
         </div>
@@ -254,7 +305,9 @@ function Table<T extends Record<string, any>>({
           >
             Prev
           </button>
-          <span className="px-2 text-gray-500">Page {pageClamped} / {totalPages}</span>
+          <span className="px-2 text-gray-500">
+            Page {pageClamped} / {totalPages}
+          </span>
           <button
             className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             disabled={pageClamped >= totalPages}

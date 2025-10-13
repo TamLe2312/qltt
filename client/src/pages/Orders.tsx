@@ -138,7 +138,7 @@ const Orders: React.FC = () => {
       {/* Orders Table */}
       <Card>
         <Table
-          data={orders || []}
+          data={orders?.data || []}
           columns={columns}
           loading={isLoading}
           emptyMessage="No orders found"

@@ -1,4 +1,12 @@
-import type { Product, Order, Customer, Branch, Supplier } from "../types";
+import type {
+  Product,
+  Order,
+  Customer,
+  Branch,
+  Supplier,
+  Inventory,
+  GetParamsQuery,
+} from "../types";
 import request from "../ults/request";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -224,7 +232,7 @@ export const api = {
   getSuppliers: async () => {
     try {
       const response = await request.get("suppliers");
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       throw error;
@@ -243,7 +251,7 @@ export const api = {
   updateSupplier: async (id: string, supplier: Partial<Supplier>) => {
     try {
       const response = await request.put(`suppliers/update/${id}`, supplier);
-      return response.data;
+      return response;
     } catch (error) {
       throw error;
     }
@@ -252,7 +260,7 @@ export const api = {
   deleteSupplier: async (id: string) => {
     try {
       const response = await request.delete(`suppliers/delete/${id}`);
-      return response.data;
+      return response;
     } catch (error) {
       throw error;
     }
@@ -262,7 +270,7 @@ export const api = {
   getCategories: async () => {
     try {
       const response = await request.get("categories");
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error fetching categories:", error);
       throw error;
@@ -272,7 +280,7 @@ export const api = {
   createCategory: async (category: { name: string; parent_id?: string }) => {
     try {
       const response = await request.post("categories", category);
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error creating category:", error);
       throw error;
@@ -285,7 +293,7 @@ export const api = {
   ) => {
     try {
       const response = await request.put(`categories/update/${id}`, category);
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error updating category:", error);
       throw error;
@@ -295,7 +303,7 @@ export const api = {
   deleteCategory: async (id: string) => {
     try {
       const response = await request.delete(`categories/delete/${id}`);
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error deleting category:", error);
       throw error;
@@ -306,7 +314,7 @@ export const api = {
   getBranches: async () => {
     try {
       const response = await request.get("branches");
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error fetching branches:", error);
       throw error;
@@ -314,12 +322,49 @@ export const api = {
   },
 
   //Inventories
-  getInventories: async () => {
+  getInventories: async (params: GetParamsQuery) => {
     try {
-      const response = await request.get("inventories");
-      return response.data;
+      const { page, limit, sortBy, sortOrder } = params;
+
+      const response = await request.get("inventories", {
+        params: { page, limit, sortBy, sortOrder },
+      });
+      return response;
     } catch (error) {
       console.error("Error fetching inventories:", error);
+      throw error;
+    }
+  },
+
+  createInventory: async (
+    inventories: Omit<
+      Inventory,
+      "id" | "branch_name" | "supplier_name" | "product_name" | "sku"
+    >
+  ) => {
+    try {
+      const response = await request.post("inventories/create", inventories);
+      return response;
+    } catch (error) {
+      console.error("Error creating inventory:", error);
+      throw error;
+    }
+  },
+
+  updateInventory: async (id: string, updates: Partial<Inventory>) => {
+    try {
+      const response = await request.put(`inventories/update/${id}`, updates);
+      return response;
+    } catch (error) {
+      console.error("Error updating inventory:", error);
+      throw error;
+    }
+  },
+  deleteInventory: async (id: string) => {
+    try {
+      const response = await request.delete(`inventories/delete/${id}`);
+      return response;
+    } catch (error) {
       throw error;
     }
   },
@@ -328,7 +373,7 @@ export const api = {
   getOrders: async () => {
     try {
       const response = await request.get("orders");
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error fetching orders:", error);
       throw error;
@@ -339,7 +384,7 @@ export const api = {
   getProducts: async () => {
     try {
       const response = await request.get("products");
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error fetching products:", error);
       throw error;
@@ -350,7 +395,7 @@ export const api = {
   getUsers: async () => {
     try {
       const response = await request.get("users");
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error fetching users:", error);
       throw error;

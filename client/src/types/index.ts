@@ -82,10 +82,22 @@ export interface Supplier {
 
 export interface Inventory {
   id: string;
+  product_id: string;
   product_name: string;
-  sku: string;
+  branch_id: string;
   branch_name: string;
+  supplier_id: string;
+  supplier_name: string;
+  sku: string;
   quantity: number;
+  reserved_stock: number;
+}
+
+export interface GetParamsQuery {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 export interface Customer {

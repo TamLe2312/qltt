@@ -97,7 +97,7 @@ const Branches: React.FC = () => {
       {/* Branches Table */}
       <Card>
         <Table
-          data={branches || []}
+          data={branches?.data || []}
           columns={columns}
           loading={isLoading}
           emptyMessage="No branches found"

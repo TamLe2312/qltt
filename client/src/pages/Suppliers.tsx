@@ -189,7 +189,7 @@ const Suppliers: React.FC = () => {
       {/* Suppliers Table */}
       <Card>
         <Table
-          data={suppliers || []}
+          data={suppliers?.data || []}
           columns={columns}
           loading={isLoading}
           emptyMessage="No suppliers found"
