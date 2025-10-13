@@ -1,4 +1,4 @@
-const pool = require("../config/db.js");
+const { pool } = require("../config/db.js");
 const handlePgError = require("../middlewares/handlePgError.js");
 const { deleteImages } = require("../middlewares/multerConfig.js");
 

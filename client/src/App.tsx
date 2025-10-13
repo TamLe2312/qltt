@@ -1,4 +1,3 @@
-import React from "react";
 import { Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
@@ -8,7 +7,6 @@ import Branches from "./pages/Branches";
 import Inventories from "./pages/Inventories";
 import OrderDetails from "./pages/OrderDetails";
 import NotFound from "./pages/NotFound";
-import Test from "./pages/Test";
 import Users from "./pages/Users";
 import CreateOrder from "./pages/user/CreateOrder";
 import AdminLayout from "./components/layout/admin/AdminLayout";
@@ -18,10 +16,13 @@ import Categories from "./pages/admin/Categories";
 import BranchCreate from "./pages/admin/BranchCreate";
 import UploadPage from "./pages/admin/UploadPage";
 import Suppliers from "./pages/Suppliers";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   return (
     <div className="min-w-[300px]">
+      <ToastContainer stacked />
       <Routes>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />

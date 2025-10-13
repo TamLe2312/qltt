@@ -1,4 +1,4 @@
-const pool = require("../config/db.js");
+const { pool } = require("../config/db.js");
 const buildTree = require("../helpers/buildTree.js");
 const handlePgError = require("../middlewares/handlePgError.js");
 
