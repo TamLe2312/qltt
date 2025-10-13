@@ -18,10 +18,28 @@ const getAllCategories = async (req, res) => {
   }
 };
 
+const getCategories = async (req, res) => {
+  try {
+    const { limit, page } = req.query;
+    const offset = page && limit ? (page - 1) * limit : 0;
+    const result = await pool.query(
+      `SELECT c.*, COALESCE(p.name, 'ROOT') AS parent_name FROM categories c
+       LEFT JOIN categories p ON c.parent_id = p.id
+       ORDER BY c.id
+       LIMIT $1 OFFSET $2`,
+      [limit || 20, offset]
+    );
+    const countResult = await pool.query("SELECT COUNT(*) FROM categories;");
+    res.json({ data: result.rows, total: countResult.rows[0].count });
+  } catch (err) {
+    handlePgError(err, res);
+  }
+};
+
 const createCategory = async (req, res) => {
   try {
     const { name, parent_id } = req.body;
-    const result = await pool.query(
+    await pool.query(
       `INSERT INTO categories (name, parent_id)
       VALUES ($1, $2)
         RETURNING *`,
@@ -40,7 +58,7 @@ const updateCategory = async (req, res) => {
     const result = await pool.query(
       `UPDATE categories
             SET name = $1, parent_id = $2, updated_at = NOW()
-            WHERE category_id = $3
+            WHERE id = $3
             RETURNING *`,
       [name, parent_id || null, id]
     );
@@ -58,7 +76,7 @@ const deleteCategory = async (req, res) => {
     const { id } = req.params;
     const result = await pool.query(
       `DELETE FROM categories
-            WHERE category_id = $1
+            WHERE id = $1
             RETURNING *`,
       [id]
     );
@@ -74,6 +92,7 @@ const deleteCategory = async (req, res) => {
 module.exports = {
   categoryController: {
     getAllCategories,
+    getCategories,
     createCategory,
     updateCategory,
     deleteCategory,

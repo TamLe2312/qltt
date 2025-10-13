@@ -93,6 +93,13 @@ export interface Inventory {
   reserved_stock: number;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  parent_name?: string | null;
+}
+
 export interface GetParamsQuery {
   page?: number;
   limit?: number;

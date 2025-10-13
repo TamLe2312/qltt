@@ -6,6 +6,7 @@ import type {
   Supplier,
   Inventory,
   GetParamsQuery,
+  Category,
 } from "../types";
 import request from "../ults/request";
 
@@ -269,28 +270,32 @@ export const api = {
   //Categories
   getCategories: async () => {
     try {
+      const response = await request.get("categories/list");
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getCategoryTrees: async () => {
+    try {
       const response = await request.get("categories");
       return response;
     } catch (error) {
-      console.error("Error fetching categories:", error);
       throw error;
     }
   },
 
-  createCategory: async (category: { name: string; parent_id?: string }) => {
+  createCategory: async (category: Omit<Category, "id" | "parent_name">) => {
     try {
-      const response = await request.post("categories", category);
+      const response = await request.post("categories/create", category);
       return response;
     } catch (error) {
-      console.error("Error creating category:", error);
       throw error;
     }
   },
 
-  updateCategory: async (
-    id: string,
-    category: { name?: string; parent_id?: string }
-  ) => {
+  updateCategory: async (id: string, category: Partial<Category>) => {
     try {
       const response = await request.put(`categories/update/${id}`, category);
       return response;

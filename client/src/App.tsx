@@ -12,7 +12,7 @@ import CreateOrder from "./pages/user/CreateOrder";
 import AdminLayout from "./components/layout/admin/AdminLayout";
 import UserLayout from "./components/layout/user/UserLayout";
 import Home from "./pages/user/Home";
-import Categories from "./pages/admin/Categories";
+import Categories from "./pages/Categories";
 import BranchCreate from "./pages/admin/BranchCreate";
 import UploadPage from "./pages/admin/UploadPage";
 import Suppliers from "./pages/Suppliers";

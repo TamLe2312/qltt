@@ -140,7 +140,7 @@ const Inventories: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const supplierData = {
+    const inventoryData = {
       product_id: formData.product_id,
       branch_id: formData.branch_id,
       quantity: formData.quantity,
@@ -151,10 +151,10 @@ const Inventories: React.FC = () => {
     if (editingInventory) {
       updateInventoryMutation.mutate({
         id: editingInventory.id,
-        updates: supplierData,
+        updates: inventoryData,
       });
     } else {
-      createInventoryMutation.mutate(supplierData);
+      createInventoryMutation.mutate(inventoryData);
     }
   };
 

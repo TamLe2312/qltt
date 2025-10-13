@@ -20,7 +20,6 @@ const Select: React.FC<SelectProps> = ({ label, options, ...props }) => {
         className="border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primary-500 focus:border-primary-500"
         {...props}
       >
-        <option value="">-- Select an option --</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
