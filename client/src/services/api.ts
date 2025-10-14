@@ -326,6 +326,36 @@ export const api = {
     }
   },
 
+  createBranch: async (branch: Omit<Branch, "id">) => {
+    try {
+      const response = await request.post("branches/create", branch);
+      return response;
+    } catch (error) {
+      console.error("Error creating branch:", error);
+      throw error;
+    }
+  },
+
+  updateBranch: async (id: string, updates: Partial<Branch>) => {
+    try {
+      const response = await request.put(`branches/update/${id}`, updates);
+      return response;
+    } catch (error) {
+      console.error("Error updating branch:", error);
+      throw error;
+    }
+  },
+
+  deleteBranch: async (id: string) => {
+    try {
+      const response = await request.delete(`branches/delete/${id}`);
+      return response;
+    } catch (error) {
+      console.error("Error deleting branch:", error);
+      throw error;
+    }
+  },
+
   //Inventories
   getInventories: async (params: GetParamsQuery) => {
     try {

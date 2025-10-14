@@ -61,10 +61,6 @@ export interface Branch {
   zipcode: string;
   email: string;
   phone: string;
-
-  created_at: string | null;
-  updated_at: string | null;
-  deleted_at: string | null;
 }
 
 export interface Supplier {

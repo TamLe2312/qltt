@@ -187,18 +187,12 @@ const Inventories: React.FC = () => {
       ),
     },
     {
-      key: "product_name",
-      title: "Product name",
-      render: (value: string) => (
-        <span className="font-mono text-sm text-primary-600">{value}</span>
-      ),
-    },
-    {
-      key: "sku",
-      title: "SKU",
-      render: (value: string) => (
+      key: "product_infomation",
+      title: "Product information",
+      render: (value: string, item: Inventory) => (
         <div>
-          <p className="font-medium text-gray-600">{value}</p>
+          <p className="font-medium text-gray-600">{item.product_name}</p>
+          <p className="font-mono text-primary-600">{item.sku}</p>
         </div>
       ),
     },

@@ -141,17 +141,13 @@ const Suppliers: React.FC = () => {
       ),
     },
     {
-      key: "email",
-      title: "Email",
-      render: (value: string) => (
-        <p className="text-sm text-gray-500">{value}</p>
-      ),
-    },
-    {
-      key: "phone",
-      title: "Phone",
-      render: (value: string) => (
-        <p className="text-sm text-gray-500">{value}</p>
+      key: "contact_info",
+      title: "Contact information",
+      render: (value: string, item: Supplier) => (
+        <div>
+          <p className="font-medium text-gray-600">{item.email}</p>
+          <p className="font-mono text-primary-600">{item.phone}</p>
+        </div>
       ),
     },
     {
