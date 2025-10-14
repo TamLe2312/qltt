@@ -218,10 +218,19 @@ const Branches: React.FC = () => {
       {/* Branches Table */}
       <Card>
         <Table
-          data={branches?.data || []}
+          data={branches?.data?.data || []}
           columns={columns}
           loading={isLoading}
           emptyMessage="No branches found"
+          total={branches?.data?.total || 0}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={(newPage: number) => setPage(newPage)}
+          handlePageSizeChange={handlePageSizeChange}
+          onSortChange={(key: string, order: "asc" | "desc") => {
+            setSort({ key, order });
+            setPage(1);
+          }}
         />
       </Card>
 

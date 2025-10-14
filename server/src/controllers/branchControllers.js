@@ -3,16 +3,17 @@ const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllBranches = async (req, res) => {
   try {
-    const { limit, page } = req.query;
+    const { limit, page, sortBy, sortOrder } = req.query;
     const offset = page && limit ? (page - 1) * limit : 0;
-    const result = await pool.query(
+    const results = await pool.query(
       `SELECT * 
       FROM branches
-      ORDER BY id
+      ORDER BY ${sortBy || "id"} ${sortOrder === "desc" ? "DESC" : "ASC"}
       LIMIT $1 OFFSET $2`,
       [limit || 20, offset]
     );
-    res.json(result.rows);
+    const countResult = await pool.query("SELECT COUNT(*) FROM branches;");
+    res.json({ data: results.rows, total: countResult.rows[0].count });
   } catch (err) {
     handlePgError(err, res);
   }
