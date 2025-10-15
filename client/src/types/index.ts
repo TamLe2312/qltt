@@ -117,11 +117,28 @@ export interface Customer {
 
 export interface User {
   id: string;
-  customer_code: string;
   full_name: string;
+  username: string;
+  password: string;
   email: string;
   phone: string;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "blocked";
+  role_id: string;
+  role_name: string;
+}
+
+export interface UserAddress {
+  id: string;
+  user_id: string;
+  full_name: string;
+  username: string;
+  street: string;
+  ward: string;
+  district: string;
+  city: string;
+  country: string;
+  zipcode: string;
+  is_default: boolean;
 }
 
 export interface DashboardStats {

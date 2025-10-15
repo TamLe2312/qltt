@@ -1,18 +1,20 @@
 import React, { useState } from "react";
+import { User, UserAddress } from "../types";
 import Button from "../components/ui/Button";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Table from "../components/ui/Table";
 import Card from "../components/ui/Card";
-import { Branch } from "../types";
+import Table from "../components/ui/Table";
 import { api } from "../services/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { handleToast } from "../hooks/toast";
 import Modal from "../components/ui/Modal";
 import Input from "../components/ui/Input";
+import Select from "../components/ui/Select";
+import ToggleSwitch from "../components/ui/ToggleSwtich";
 
-const Branches: React.FC = () => {
-  const { data: branches, isLoading } = useQuery({
-    queryKey: ["branches"],
-    queryFn: api.getBranches,
+const UserAddresses: React.FC = () => {
+  const { data: userAddresses, isLoading } = useQuery({
+    queryKey: ["UserAddresses"],
+    queryFn: api.getUserAddresses,
   });
 
   const [page, setPage] = useState(1);
@@ -28,152 +30,145 @@ const Branches: React.FC = () => {
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [editingUserAddress, setEditingUserAddress] =
+    useState<UserAddress | null>(null);
   const [formData, setFormData] = useState({
-    name: "",
+    user_id: "",
     street: "",
     ward: "",
     district: "",
     city: "",
     country: "",
     zipcode: "",
-    email: "",
-    phone: "",
+    is_default: false,
   });
 
   const queryClient = useQueryClient();
 
-  const createBranchMutation = useMutation({
-    mutationFn: api.createBranch,
+  const createUserAddressMutation = useMutation({
+    mutationFn: api.createUserAddress,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["branches"] });
-      handleToast("success", "Branch created successfully");
+      queryClient.invalidateQueries({ queryKey: ["UserAddresses"] });
+      handleToast("success", "User address created successfully");
       setIsModalOpen(false);
       resetForm();
     },
     onError: (error: any) => {
       handleToast(
         "error",
-        `${error.response?.data?.error || "Failed to create branch"}`
+        `${error.response?.data?.error || "Failed to create user address"}`
       );
       console.error(error);
     },
   });
 
-  const updateBranchMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Branch> }) =>
-      api.updateBranch(id, updates),
+  const updateUserAddressMutation = useMutation({
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<UserAddress>;
+    }) => api.updateUserAddress(id, updates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["branches"] });
-      handleToast("success", "Branch updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["UserAddresses"] });
+      handleToast("success", "User address updated successfully");
       setIsModalOpen(false);
       resetForm();
     },
     onError: (error: any) => {
       handleToast(
         "error",
-        `${error.response?.data?.error || "Failed to update branch"}`
+        `${error.response?.data?.error || "Failed to update user address"}`
       );
       console.error(error);
     },
   });
 
-  const deleteBranchMutation = useMutation({
-    mutationFn: api.deleteBranch,
+  const deleteUserAddressMutation = useMutation({
+    mutationFn: api.deleteUserAddress,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["branches"] });
-      handleToast("success", "Branch deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["UserAddresses"] });
+      handleToast("success", "User address deleted successfully");
     },
   });
 
   const resetForm = () => {
     setFormData({
-      name: "",
+      user_id: "",
       street: "",
       ward: "",
       district: "",
       city: "",
       country: "",
       zipcode: "",
-      email: "",
-      phone: "",
+      is_default: false,
     });
-    setEditingBranch(null);
+    setEditingUserAddress(null);
   };
 
-  const handleEdit = (branch: Branch) => {
-    setEditingBranch(branch);
+  const handleEdit = (userAddress: UserAddress) => {
+    setEditingUserAddress(userAddress);
     setFormData({
-      name: branch.name,
-      street: branch.street,
-      ward: branch.ward,
-      district: branch.district,
-      city: branch.city,
-      country: branch.country,
-      zipcode: branch.zipcode,
-      email: branch.email,
-      phone: branch.phone,
+      user_id: userAddress.user_id,
+      street: userAddress.street,
+      ward: userAddress.ward,
+      district: userAddress.district,
+      city: userAddress.city,
+      country: userAddress.country,
+      zipcode: userAddress.zipcode,
+      is_default: userAddress.is_default,
     });
     setIsModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const branchData = {
-      name: formData.name,
+    const userAddressData = {
+      user_id: formData.user_id,
       street: formData.street,
       ward: formData.ward,
       district: formData.district,
       city: formData.city,
       country: formData.country,
       zipcode: formData.zipcode,
-      email: formData.email,
-      phone: formData.phone,
+      is_default: formData.is_default,
     };
 
-    if (editingBranch) {
-      updateBranchMutation.mutate({
-        id: editingBranch.id,
-        updates: branchData,
+    if (editingUserAddress) {
+      updateUserAddressMutation.mutate({
+        id: editingUserAddress.id,
+        updates: userAddressData,
       });
     } else {
-      createBranchMutation.mutate(branchData);
+      createUserAddressMutation.mutate(userAddressData);
     }
   };
 
   const columns = [
     {
       key: "id",
-      title: "Branch ID",
+      title: "User ID",
       render: (value: string) => (
         <span className="font-mono text-sm text-primary-600">#{value}</span>
       ),
     },
     {
-      key: "name",
-      title: "name",
-      render: (value: string) => (
+      key: "user_info",
+      title: "User information",
+      render: (value: string, item: UserAddress) => (
         <div>
-          <p className="font-medium text-gray-600">{value}</p>
-        </div>
-      ),
-    },
-    {
-      key: "contact_info",
-      title: "Contact information",
-      render: (value: string, item: Branch) => (
-        <div>
-          <p className="font-medium text-gray-600">{item.email}</p>
-          <p className="font-mono text-primary-600">{item.phone}</p>
+          <p className="font-medium text-gray-600">{item.full_name}</p>
+          <p className="font-mono text-primary-600">{item.username}</p>
         </div>
       ),
     },
     {
       key: "address",
       title: "Address",
-      render: (value: string, item: Branch) => (
+      render: (value: string, item: UserAddress) => (
         <div>
-          <p className="font-medium text-gray-600">
+          <p className="text-gray-600">
             {item.street}, {item.ward}, {item.district}, {item.city},{" "}
             {item.country}
           </p>
@@ -184,7 +179,7 @@ const Branches: React.FC = () => {
     {
       key: "actions",
       title: "Actions",
-      render: (value: any, item: Branch) => (
+      render: (value: any, item: UserAddress) => (
         <div className="flex items-center space-x-2">
           <Button size="sm" variant="outline" onClick={() => handleEdit(item)}>
             Edit
@@ -192,8 +187,8 @@ const Branches: React.FC = () => {
           <Button
             size="sm"
             variant="danger"
-            onClick={() => deleteBranchMutation.mutate(item.id)}
-            isLoading={deleteBranchMutation.isPending}
+            onClick={() => deleteUserAddressMutation.mutate(item.id)}
+            isLoading={deleteUserAddressMutation.isPending}
           >
             Delete
           </Button>
@@ -202,28 +197,42 @@ const Branches: React.FC = () => {
     },
   ];
 
+  const { data: usersData, isLoading: isUsersLoading } = useQuery({
+    queryKey: ["Users"],
+    queryFn: api.getUsers,
+  });
+
+  const userOptions = React.useMemo(() => {
+    const options =
+      usersData?.data?.data?.map((r: any) => ({
+        value: r.id,
+        label: r.username,
+      })) || [];
+    return [{ value: "", label: "Select user" }, ...options];
+  }, [usersData]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className={"flex items-center justify-between"}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Branches</h1>
-          <p className="text-gray-600">Manage your branch</p>
+          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+          <p className="text-gray-600">Manage your users</p>
         </div>
         <div className="space-x-2">
-          <Button onClick={() => setIsModalOpen(true)}>Add Branch</Button>
+          <Button onClick={() => setIsModalOpen(true)}>Add User</Button>
           <Button>Export Report</Button>
         </div>
       </div>
 
-      {/* Branches Table */}
+      {/* Users Table */}
       <Card>
         <Table
-          data={branches?.data?.data || []}
+          data={userAddresses?.data?.data || []}
           columns={columns}
           loading={isLoading}
-          emptyMessage="No branches found"
-          total={branches?.data?.total || 0}
+          emptyMessage="No users found"
+          total={userAddresses?.data?.total || 0}
           page={page}
           pageSize={pageSize}
           onPageChange={(newPage: number) => setPage(newPage)}
@@ -241,40 +250,15 @@ const Branches: React.FC = () => {
           setIsModalOpen(false);
           resetForm();
         }}
-        title={editingBranch ? "Edit Branch" : "Add New Branch"}
+        title={
+          editingUserAddress ? "Edit User Address" : "Add New User Address"
+        }
         size="lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <Input
-              label="Branch Name"
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-            />
-            <Input
-              label="Email"
-              type="email"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-            />
-            <Input
-              label="Phone"
-              type="text"
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({ ...formData, phone: e.target.value })
-              }
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input
               label="Street"
-              type="text"
               value={formData.street}
               onChange={(e) =>
                 setFormData({ ...formData, street: e.target.value })
@@ -282,7 +266,6 @@ const Branches: React.FC = () => {
             />
             <Input
               label="Ward"
-              type="text"
               value={formData.ward}
               onChange={(e) =>
                 setFormData({ ...formData, ward: e.target.value })
@@ -290,7 +273,6 @@ const Branches: React.FC = () => {
             />
             <Input
               label="District"
-              type="text"
               value={formData.district}
               onChange={(e) =>
                 setFormData({ ...formData, district: e.target.value })
@@ -298,7 +280,6 @@ const Branches: React.FC = () => {
             />
             <Input
               label="City"
-              type="text"
               value={formData.city}
               onChange={(e) =>
                 setFormData({ ...formData, city: e.target.value })
@@ -306,7 +287,6 @@ const Branches: React.FC = () => {
             />
             <Input
               label="Country"
-              type="text"
               value={formData.country}
               onChange={(e) =>
                 setFormData({ ...formData, country: e.target.value })
@@ -314,14 +294,30 @@ const Branches: React.FC = () => {
             />
             <Input
               label="Zipcode"
-              type="text"
               value={formData.zipcode}
               onChange={(e) =>
                 setFormData({ ...formData, zipcode: e.target.value })
               }
             />
           </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select
+              label="User"
+              options={userOptions}
+              value={formData.user_id}
+              onChange={(e) =>
+                setFormData({ ...formData, user_id: e.target.value })
+              }
+              disabled={editingUserAddress !== null}
+            />
+            <ToggleSwitch
+              label="Set as default address"
+              checked={formData.is_default}
+              onChange={(newCheckedState) =>
+                setFormData({ ...formData, is_default: newCheckedState })
+              }
+            />
+          </div>
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               type="button"
@@ -336,10 +332,11 @@ const Branches: React.FC = () => {
             <Button
               type="submit"
               isLoading={
-                createBranchMutation.isPending || updateBranchMutation.isPending
+                createUserAddressMutation.isPending ||
+                updateUserAddressMutation.isPending
               }
             >
-              {editingBranch ? "Update Branch" : "Add Branch"}
+              {editingUserAddress ? "Update User Address" : "Add User Address"}
             </Button>
           </div>
         </form>
@@ -348,4 +345,4 @@ const Branches: React.FC = () => {
   );
 };
 
-export default Branches;
+export default UserAddresses;

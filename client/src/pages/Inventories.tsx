@@ -164,10 +164,13 @@ const Inventories: React.FC = () => {
       [],
     [productsData]
   );
+
   const branchOptions = React.useMemo(
     () =>
-      branchesData?.data?.map((b: any) => ({ value: b.id, label: b.name })) ||
-      [],
+      branchesData?.data?.data?.map((b: any) => ({
+        value: b.id,
+        label: b.name,
+      })) || [],
     [branchesData]
   );
 

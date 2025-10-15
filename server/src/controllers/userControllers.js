@@ -4,13 +4,19 @@ const bcrypt = require("bcrypt");
 
 const getAllUsers = async (req, res) => {
   try {
-    const { limit, page } = req.query;
+    const { limit, page, sortBy, sortOrder } = req.query;
     const offset = page && limit ? (page - 1) * limit : 0;
-    const result = await pool.query(
-      "SELECT * FROM users ORDER BY id LIMIT $1 OFFSET $2",
+    const results = await pool.query(
+      `SELECT u.id, u.full_name, u.username, u.email, u.phone, u.status, r.id AS role_id, r.name AS role_name
+      FROM users u
+      JOIN user_roles ur ON u.id = ur.user_id
+      JOIN roles r ON ur.role_id = r.id
+      ORDER BY ${sortBy || "u.id"} ${sortOrder === "desc" ? "DESC" : "ASC"}
+      LIMIT $1 OFFSET $2`,
       [limit || 20, offset]
     );
-    res.json(result.rows);
+    const countResult = await pool.query("SELECT COUNT(*) FROM users;");
+    res.json({ data: results.rows, total: countResult.rows[0].count });
   } catch (err) {
     handlePgError(err, res);
   }
@@ -29,9 +35,18 @@ const getUserById = async (req, res) => {
   }
 };
 
+const getRoles = async (req, res) => {
+  try {
+    const result = await pool.query("SELECT id, name FROM roles ORDER BY id");
+    res.json(result.rows);
+  } catch (err) {
+    handlePgError(err, res);
+  }
+};
+
 const createUser = async (req, res) => {
   try {
-    const { full_name, status, username, email, phone, password, role } =
+    const { full_name, status, username, email, phone, password, role_id } =
       req.body;
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -48,7 +63,7 @@ const createUser = async (req, res) => {
     await pool.query(
       `INSERT INTO user_roles (user_id, role_id)
        VALUES ($1, $2)`,
-      [result.rows[0].id, role]
+      [result.rows[0].id, role_id]
     );
 
     res.status(201).json({ message: "User created" });
@@ -129,12 +144,38 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const userDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `
+      SELECT u.id, u.full_name, u.username, u.email, u.phone, u.status, u.password,
+      r.id AS role_id, r.name AS role_name,
+      ca.street, ca.ward, ca.district, ca.city, ca.zipcode, ca.country, ca.is_default
+      FROM users u
+      LEFT JOIN user_roles ur ON u.id = ur.user_id
+      LEFT JOIN roles r ON ur.role_id = r.id
+      JOIN customer_address ca ON u.id = ca.user_id
+      WHERE u.id = $1`,
+      [id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    handlePgError(err, res);
+  }
+};
+
 module.exports = {
   userController: {
     getAllUsers,
     getUserById,
+    getRoles,
     createUser,
     updateUser,
     deleteUser,
+    userDetails,
   },
 };

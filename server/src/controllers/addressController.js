@@ -3,16 +3,19 @@ const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllAddresses = async (req, res) => {
   try {
-    const { limit, page } = req.query;
-    const offset = page && limit ? (page - 1) * limit : 0;
+    const { limit, page, sortBy, sortOrder } = req.query;
     const result = await pool.query(
-      `SELECT * 
-      FROM customer_address
-      ORDER BY id
+      `SELECT ca.id, ca.is_default, u.id AS user_id, u.full_name, u.username, ca.street, ca.ward, ca.district, ca.city, ca.country, ca.zipcode
+      FROM customer_address ca
+      JOIN users u ON ca.user_id = u.id
+      ORDER BY ${sortBy || "ca.id"} ${sortOrder === "desc" ? "DESC" : "ASC"}
       LIMIT $1 OFFSET $2`,
-      [limit || 20, offset]
+      [limit || 20, (page - 1) * limit || 0]
     );
-    res.json(result.rows);
+    const countResult = await pool.query(
+      "SELECT COUNT(*) FROM customer_address;"
+    );
+    res.json({ data: result.rows, total: countResult.rows[0].count });
   } catch (err) {
     handlePgError(err, res);
   }
@@ -30,7 +33,7 @@ const createAddress = async (req, res) => {
       user_id,
       is_default,
     } = req.body;
-    const result = await pool.query(
+    await pool.query(
       `INSERT INTO customer_address (street, ward, district, city, country, zipcode, user_id, is_default)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *`,
@@ -45,22 +48,14 @@ const createAddress = async (req, res) => {
 const updateAddress = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      street,
-      ward,
-      district,
-      city,
-      country,
-      zipcode,
-      user_id,
-      is_default,
-    } = req.body;
+    const { street, ward, district, city, country, zipcode, is_default } =
+      req.body;
     const result = await pool.query(
       `UPDATE customer_address
-            SET street = $1, ward = $2, district = $3, city = $4, country = $5, zipcode = $6, user_id = $7, is_default = $8, updated_at = NOW()
-            WHERE id = $9
+            SET street = $1, ward = $2, district = $3, city = $4, country = $5, zipcode = $6, is_default = $7, updated_at = NOW()
+            WHERE id = $8
             RETURNING *`,
-      [street, ward, district, city, country, zipcode, user_id, is_default, id]
+      [street, ward, district, city, country, zipcode, is_default, id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Address not found" });

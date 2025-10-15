@@ -7,6 +7,8 @@ import type {
   Inventory,
   GetParamsQuery,
   Category,
+  User,
+  UserAddress,
 } from "../types";
 import request from "../ults/request";
 
@@ -426,6 +428,17 @@ export const api = {
     }
   },
 
+  //User Details
+  userDetails: async (id: string) => {
+    try {
+      const response = await request.get(`users/details/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+      throw error;
+    }
+  },
+
   // Users
   getUsers: async () => {
     try {
@@ -433,6 +446,89 @@ export const api = {
       return response;
     } catch (error) {
       console.error("Error fetching users:", error);
+      throw error;
+    }
+  },
+
+  getRoles: async () => {
+    try {
+      const response = await request.get("users/roles");
+      return response;
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      throw error;
+    }
+  },
+
+  createUser: async (user: Omit<User, "id" | "role_name">) => {
+    try {
+      const response = await request.post("users/create", user);
+      return response;
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
+  },
+
+  updateUser: async (id: string, updates: Partial<User>) => {
+    try {
+      const response = await request.put(`users/update/${id}`, updates);
+      return response;
+    } catch (error) {
+      console.error("Error updating user:", error);
+      throw error;
+    }
+  },
+
+  deleteUser: async (id: string) => {
+    try {
+      const response = await request.delete(`users/delete/${id}`);
+      return response;
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      throw error;
+    }
+  },
+
+  // User Addresses
+  getUserAddresses: async () => {
+    try {
+      const response = await request.get(`addresses`);
+      return response;
+    } catch (error) {
+      console.error("Error fetching user addresses:", error);
+      throw error;
+    }
+  },
+
+  createUserAddress: async (
+    address: Omit<UserAddress, "id" | "username" | "full_name">
+  ) => {
+    try {
+      const response = await request.post("addresses/create", address);
+      return response;
+    } catch (error) {
+      console.error("Error creating user address:", error);
+      throw error;
+    }
+  },
+
+  updateUserAddress: async (id: string, updates: Partial<UserAddress>) => {
+    try {
+      const response = await request.put(`addresses/update/${id}`, updates);
+      return response;
+    } catch (error) {
+      console.error("Error updating user address:", error);
+      throw error;
+    }
+  },
+
+  deleteUserAddress: async (id: string) => {
+    try {
+      const response = await request.delete(`addresses/delete/${id}`);
+      return response;
+    } catch (error) {
+      console.error("Error deleting user address:", error);
       throw error;
     }
   },

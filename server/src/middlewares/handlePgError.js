@@ -59,9 +59,17 @@ function handlePgError(err, res) {
     return res.status(400).json({ error: `${err.column} không được trống` });
   }
   if (err.code === "22P02") {
+    console.log(err);
     return res.status(400).json({
       error: "Một trường dữ liệu số không hợp lệ.",
     });
+  }
+  if (err.code === "P0001") {
+    if (err.message.includes("Người dùng đã có một địa chỉ mặc định")) {
+      return res
+        .status(400)
+        .json({ error: "Người dùng đã có một địa chỉ mặc định." });
+    }
   }
 
   console.error(err);

@@ -18,6 +18,8 @@ import UploadPage from "./pages/admin/UploadPage";
 import Suppliers from "./pages/Suppliers";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import UserAddresses from "./pages/UserAddresses";
+import UserDetails from "./pages/admin/UserDetails";
 
 function App() {
   return (
@@ -32,6 +34,8 @@ function App() {
           <Route path="orders" element={<Orders />} />
           <Route path="orders/order-details/:id" element={<OrderDetails />} />
           <Route path="users" element={<Users />} />
+          <Route path="users/:id" element={<UserDetails />} />
+          <Route path="users/addresses" element={<UserAddresses />} />
           <Route path="categories" element={<Categories />} />
           <Route path="inventories" element={<Inventories />} />
           <Route path="suppliers" element={<Suppliers />} />
