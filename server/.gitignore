@@ -5,3 +5,7 @@ node_modules
 /public/images
 /public/videos
 /public/sounds
+
+/src/public/images
+/src/public/videos
+/src/public/sounds
