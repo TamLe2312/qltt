@@ -1,0 +1,24 @@
+Lệnh chạy dự án theo port chỉ định
+$env:PORT=5000; npm start
+
+Mẫu thiết kế json trả về từ api
+{
+  "data": {
+    "items": [
+      { "id": 1, "name": "Alice", "email": "alice@example.com" },
+      { "id": 2, "name": "Bob", "email": "bob@example.com" }
+    ],
+    "pagination": {
+      "total": 100,
+      "page": 1,
+      "perPage": 10,
+      "totalPages": 10
+    },
+    "sort": {
+      "field": "name",
+      "order": "asc"
+    }
+  },
+  "status": "success",
+  "message": "Fetched successfully"
+}
