@@ -122,9 +122,9 @@ const Products: React.FC = () => {
             title: 'Hành động',
             render: (value: any, item: Product) => (
                 <div className="flex items-center space-x-2">
-                    <Button size="sm" variant="outline">
+                    {/* <Button size="sm" variant="outline">
                         Sửa
-                    </Button>
+                    </Button> */}
                     <Button
                         size="sm"
                         variant="outline"

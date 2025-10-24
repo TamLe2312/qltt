@@ -31,6 +31,9 @@ const getAllInventories = async (req, res) => {
     page = parseInt(page, 10);
     const offset = (page - 1) * limit;
 
+    console.log("Query params:", req.query);
+    console.log("Limit:", limit, "Page:", page, "Offset:", offset);
+
     // Mapping client sortField sang tên cột thực tế trong DB
     const sortFieldMap = {
       id: 'i.id',
@@ -57,6 +60,7 @@ const getAllInventories = async (req, res) => {
       JOIN products p ON i.product_id = p.id
       JOIN suppliers s ON i.supplier_id = s.id
       JOIN branches b ON i.branch_id = b.id
+      WHERE i.deleted_at IS NULL
       ORDER BY ${dbSortField} ${sortOrder}
       LIMIT $1 OFFSET $2
       `,
@@ -126,17 +130,29 @@ const updateInventory = async (req, res) => {
 const deleteInventory = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query("DELETE FROM inventories WHERE id = $1", [
-      id,
-    ]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: "Inventory not found" });
+
+    // Kiểm tra bản ghi tồn tại và chưa bị soft delete
+    const { rows } = await pool.query(
+      "SELECT id FROM inventories WHERE id = $1 AND deleted_at IS NULL",
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Inventory not found or already deleted" });
     }
-    res.json({ message: "Inventory deleted" });
+
+    // Thực hiện DELETE (trigger sẽ cập nhật deleted_at)
+    await pool.query("DELETE FROM inventories WHERE id = $1", [id]);
+
+    res.json({
+      status: "success",
+      message: "Inventory deleted (soft delete triggered)"
+    });
   } catch (err) {
     handlePgError(err, res);
   }
 };
+
 
 module.exports = {
   inventoriesController: {

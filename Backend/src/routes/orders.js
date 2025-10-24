@@ -5,6 +5,7 @@ const { upload } = require("../middlewares/multerConfig.js");
 const Router = express.Router();
 
 Router.get("/", orderController.getAllOrders);
+Router.get("/:id", orderController.getOrderById);
 Router.get("/:id/products", orderController.getOrderProducts);
 Router.post("/create", upload.none(), orderController.createOrder);
 Router.put("/update/:id", upload.none(), orderController.updateOrder);

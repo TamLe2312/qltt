@@ -1,23 +1,6 @@
 const { pool } = require("../config/db.js");
 const handlePgError = require("../middlewares/handlePgError.js");
 
-// const getAllSuppliers = async (req, res) => {
-//   try {
-//     const { limit, page } = req.query;
-//     const offset = page && limit ? (page - 1) * limit : 0;
-//     const result = await pool.query(
-//       `SELECT * 
-//       FROM suppliers
-//       ORDER BY id
-//       LIMIT $1 OFFSET $2`,
-//       [limit || 20, offset]
-//     );
-//     res.json(result.rows);
-//   } catch (err) {
-//     handlePgError(err, res);
-//   }
-// };
-
 const getAllSuppliers = async (req, res) => {
   try {
     let { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
@@ -33,6 +16,7 @@ const getAllSuppliers = async (req, res) => {
     // Truy vấn danh sách suppliers với phân trang và sắp xếp
     const result = await pool.query(
       `SELECT * FROM suppliers
+        WHERE suppliers.deleted_at IS NULL
        ORDER BY ${sortField} ${sortOrder}
        LIMIT $1 OFFSET $2`,
       [limit, offset]
@@ -125,18 +109,29 @@ const updateSupplier = async (req, res) => {
 const deleteSupplier = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-      "DELETE FROM suppliers WHERE id = $1 RETURNING *",
+
+    // Kiểm tra bản ghi tồn tại và chưa bị soft delete
+    const { rows } = await pool.query(
+      "SELECT id FROM suppliers WHERE id = $1 AND deleted_at IS NULL",
       [id]
     );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Supplier not found" });
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Supplier not found or already deleted" });
     }
-    res.json({ message: "Supplier deleted" });
+
+    // Thực hiện DELETE (trigger soft delete sẽ cập nhật deleted_at)
+    await pool.query("DELETE FROM suppliers WHERE id = $1", [id]);
+
+    res.json({
+      status: "success",
+      message: "Supplier deleted (soft delete triggered)"
+    });
   } catch (err) {
     handlePgError(err, res);
   }
 };
+
 
 module.exports = {
   supplierController: {

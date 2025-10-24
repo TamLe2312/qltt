@@ -264,7 +264,7 @@ const Categories: React.FC = () => {
                     <h1 className="text-2xl font-bold text-gray-900">Danh mục</h1>
                     <p className="text-gray-600">Quản lý các danh mục của bạn</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)}>Mới</Button>
+                <Button onClick={() => setIsModalOpen(true)}>Tạo mới</Button>
             </div>
 
             {/* Categories Table */}

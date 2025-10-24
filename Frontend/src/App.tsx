@@ -11,7 +11,6 @@ import OrderDetails from './pages/admin/Orders/OrderDetails';
 import Orders from './pages/admin/Orders/Orders';
 import Products from './pages/admin/Products/Products';
 import { TOAST_CONFIG } from './configs';
-import Dashboard from './pages/admin/Dashboard/Dashboard';
 import Branches from './pages/admin/Branches/Branches';
 import Categories from './pages/admin/Categories/Categories';
 import Suppliers from './pages/admin/Suppliers/Suppliers';
@@ -20,7 +19,7 @@ import Users from './pages/admin/Users/Users';
 import OrderStatistics from './pages/admin/Orders/OrderStatistics';
 
 const adminRoutes = [
-  { index: true, element: <Dashboard /> },
+  { index: true, element: <Orders /> },
 
   { path: 'branches', element: <Branches /> },
 

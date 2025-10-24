@@ -4,7 +4,7 @@ const { deleteImages } = require("../middlewares/multerConfig.js");
 
 const getAllProducts = async (req, res) => {
   try {
-    const { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
+    const { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'asc' } = req.query;
     const offset = (page - 1) * limit;
 
     const result = await pool.query(
@@ -186,44 +186,65 @@ const updateProduct = async (req, res) => {
   }
 };
 
+// const deleteProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     await pool.query("BEGIN");
+
+//     const oldProductResult = await pool.query(
+//       "SELECT avatar, images FROM products WHERE id = $1",
+//       [id]
+//     );
+
+//     if (oldProductResult.rowCount === 0) {
+//       await pool.query("ROLLBACK");
+//       return res.status(404).json({ message: "Product not found" });
+//     }
+
+//     const result = await pool.query("DELETE FROM products WHERE id=$1", [id]);
+//     if (result.rowCount === 0) {
+//       return res.status(404).json({ message: "Product not found" });
+//     }
+
+//     const oldProduct = oldProductResult.rows[0];
+
+//     await pool.query("COMMIT");
+
+//     const filesToDelete = [];
+//     if (oldProduct.avatar) {
+//       filesToDelete.push(oldProduct.avatar);
+//     }
+//     if (oldProduct.images) {
+//       filesToDelete.push(...oldProduct.images);
+//     }
+//     await deleteImages(filesToDelete);
+
+//     res.json({ message: "Product deleted" });
+//   } catch (err) {
+//     handlePgError(err, res);
+//   }
+// };
+
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query("BEGIN");
 
-    const oldProductResult = await pool.query(
-      "SELECT avatar, images FROM products WHERE id = $1",
+    const result = await pool.query(
+      "UPDATE products SET deleted_at = NOW() WHERE id = $1",
       [id]
     );
 
-    if (oldProductResult.rowCount === 0) {
-      await pool.query("ROLLBACK");
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    const result = await pool.query("DELETE FROM products WHERE id=$1", [id]);
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    const oldProduct = oldProductResult.rows[0];
-
-    await pool.query("COMMIT");
-
-    const filesToDelete = [];
-    if (oldProduct.avatar) {
-      filesToDelete.push(oldProduct.avatar);
-    }
-    if (oldProduct.images) {
-      filesToDelete.push(...oldProduct.images);
-    }
-    await deleteImages(filesToDelete);
-
-    res.json({ message: "Product deleted" });
+    res.json({ message: "Product soft-deleted successfully" });
   } catch (err) {
     handlePgError(err, res);
   }
 };
+
+
 
 module.exports = {
   productController: {

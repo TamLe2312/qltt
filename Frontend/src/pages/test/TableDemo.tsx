@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import TableServerPagination from '../../components/ui/data-display/TableServerPagination';
@@ -34,7 +34,7 @@ async function mockFetch({
     sortKey: string;
     sortOrder: 'asc' | 'desc';
 }) {
-    console.log('fetching...', { page, pageSize, sortKey, sortOrder });
+    console.log('🔄 Fetching...', { page, pageSize, sortKey, sortOrder });
     await new Promise((r) => setTimeout(r, 800));
 
     let data = [...MOCK_DATA];
@@ -51,37 +51,67 @@ async function mockFetch({
     return { items, total: data.length };
 }
 
+const DEFAULTS = {
+    page: 1,
+    pageSize: 5,
+    sortKey: 'name',
+    sortOrder: 'asc' as const,
+};
+
 // -------------------- COMPONENT DEMO --------------------
 export default function Demo() {
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // ✅ Lấy giá trị từ URL (hoặc mặc định)
-    const pageParam = parseInt(searchParams.get('page') || '1', 10);
-    const pageSizeParam = parseInt(searchParams.get('page_size') || '5', 10);
-    const sortKeyParam = searchParams.get('sort_field') || 'name';
-    const sortOrderParam = (searchParams.get('sort_order') as 'asc' | 'desc') || 'asc';
+    // ---- state hiển thị / filter
+    const [page, setPage] = useState(DEFAULTS.page);
+    const [pageSize, setPageSize] = useState(DEFAULTS.pageSize);
+    const [sortKey, setSortKey] = useState(DEFAULTS.sortKey);
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(DEFAULTS.sortOrder);
 
-    const [page, setPage] = useState(pageParam);
-    const [pageSize, setPageSize] = useState(pageSizeParam);
-    const [sortKey, setSortKey] = useState(sortKeyParam);
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(sortOrderParam);
+    // ---- đồng bộ 2 chiều: URL ↔ state
+    useEffect(() => {
+        const urlParams = {
+            page: parseInt(searchParams.get('page') || String(DEFAULTS.page), 10),
+            pageSize: parseInt(searchParams.get('page_size') || String(DEFAULTS.pageSize), 10),
+            sortKey: searchParams.get('sort_field') || DEFAULTS.sortKey,
+            sortOrder: (searchParams.get('sort_order') as 'asc' | 'desc') || DEFAULTS.sortOrder,
+        };
 
-    // -------------------- React Query --------------------
+        const stateParams = { page, pageSize, sortKey, sortOrder };
+
+        const isUrlDifferent = Object.keys(urlParams).some(
+            (key) => (urlParams as any)[key] !== (stateParams as any)[key]
+        );
+
+        // Nếu URL khác: URL là nguồn thay đổi → đồng bộ state
+        if (isUrlDifferent) {
+            setPage(urlParams.page);
+            setPageSize(urlParams.pageSize);
+            setSortKey(urlParams.sortKey);
+            setSortOrder(urlParams.sortOrder);
+            return;
+        }
+
+        // Nếu URL trống: lần mount đầu tiên → ghi mặc định lên URL
+        if (searchParams.toString() === '') {
+            setSearchParams(
+                {
+                    page: String(page),
+                    page_size: String(pageSize),
+                    sort_field: sortKey,
+                    sort_order: sortOrder,
+                },
+                { replace: true }
+            );
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, page, pageSize, sortKey, sortOrder]);
+
+    // ---- React Query fetch
     const { data, isLoading } = useQuery({
         queryKey: ['categories', { page, pageSize, sortKey, sortOrder }],
-        queryFn: () => mockFetch({ page, pageSize, sortKey, sortOrder })
+        queryFn: () => mockFetch({ page, pageSize, sortKey, sortOrder }),
     });
-
-    // ✅ Đồng bộ query URL mỗi khi thay đổi state
-    React.useEffect(() => {
-        const params: Record<string, string> = {
-            page: String(page),
-            page_size: String(pageSize),
-            sort_field: sortKey,
-            sort_order: sortOrder,
-        };
-        setSearchParams(params, { replace: true });
-    }, [page, pageSize, sortKey, sortOrder]);
 
     return (
         <div className="p-6">
@@ -112,7 +142,7 @@ export default function Demo() {
                     setPage(1);
                 }}
                 loading={isLoading}
-                preserveDataWhileLoading={true}
+                preserveDataWhileLoading
             />
         </div>
     );

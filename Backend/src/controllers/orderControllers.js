@@ -1,20 +1,6 @@
 const { pool } = require("../config/db.js");
 const handlePgError = require("../middlewares/handlePgError.js");
 
-// const getAllOrders = async (req, res) => {
-//   try {
-//     const { limit, page } = req.query;
-//     const offset = page ? (page - 1) * (limit || 20) : 0;
-//     const result = await pool.query(
-//       "SELECT * FROM orders ORDER BY id LIMIT $1 OFFSET $2",
-//       [limit || 20, offset]
-//     );
-//     res.json(result.rows);
-//   } catch (err) {
-//     handlePgError(err, res);
-//   }
-// };
-
 const getAllOrders = async (req, res) => {
   try {
     let { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
@@ -100,18 +86,47 @@ const getOrdersStatistics = async (req, res) => {
   }
 };
 
-// const getOrderById = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const result = await pool.query("SELECT * FROM orders WHERE id = $1", [id]);
-//     if (result.rows.length === 0) {
-//       return res.status(404).json({ message: "Order not found" });
-//     }
-//     res.json(result.rows[0]);
-//   } catch (err) {
-//     handlePgError(err, res);
-//   }
-// };
+const getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ✅ Kiểm tra id hợp lệ
+    if (!id) {
+      return res.status(400).json({
+        status: "error",
+        message: "Order ID is required",
+      });
+    }
+
+    // ✅ Lấy thông tin đơn hàng theo id
+    const result = await pool.query(
+      `
+      SELECT o.*, u.full_name AS user_name, b.name AS branch_name
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      LEFT JOIN branches b ON o.branch_id = b.id
+      WHERE o.id = $1
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Order not found",
+      });
+    }
+
+    res.json({
+      data: result.rows[0],
+      status: "success",
+      message: "Fetched successfully",
+    });
+  } catch (err) {
+    handlePgError(err, res);
+  }
+};
 
 const getOrderProducts = async (req, res) => {
   try {
@@ -260,6 +275,7 @@ module.exports = {
     updateOrder,
     deleteOrder,
     getOrderProducts,
-    getOrdersStatistics
+    getOrdersStatistics,
+    getOrderById
   },
 };

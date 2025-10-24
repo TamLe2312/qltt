@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DatePicker, Select, InputNumber, Form, Spin } from 'antd';
+import { DatePicker, Select, InputNumber, Form, Spin, Button } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import type { OrderFilters as BaseOrderFilters, GroupBy } from '../../../types';
@@ -18,17 +18,20 @@ interface FiltersPanelProps {
 }
 
 export default function FiltersPanel({ onChange }: FiltersPanelProps) {
-    const [filters, setFilters] = useState<OrderFilters>({});
+    // ✅ Trạng thái mặc định
+    const defaultState = {
+        filters: {},
+        groupBy: 'month' as GroupBy,
+    };
+
+    const [filters, setFilters] = useState<OrderFilters>(defaultState.filters);
+    const [groupBy, setGroupBy] = useState<GroupBy>(defaultState.groupBy);
     const [tempTotals, setTempTotals] = useState<{ minTotal?: number | null; maxTotal?: number | null }>({});
     const [errors, setErrors] = useState<{ minTotal?: string; maxTotal?: string }>({});
 
     // ✅ API: Lấy danh sách chi nhánh
     const getBranches = () => getApi(`${process.env.REACT_APP_API_URL}/api/branches`);
-    const {
-        data: branchesResponse,
-        isLoading: branchesLoading,
-        error: branchesError,
-    } = useQuery({
+    const { data: branchesResponse, isLoading: branchesLoading, error: branchesError } = useQuery({
         queryKey: ['branches'],
         queryFn: getBranches,
     });
@@ -36,11 +39,7 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
 
     // ✅ API: Lấy danh sách user
     const getUsers = () => getApi(`${process.env.REACT_APP_API_URL}/api/users`);
-    const {
-        data: usersResponse,
-        isLoading: usersLoading,
-        error: usersError,
-    } = useQuery({
+    const { data: usersResponse, isLoading: usersLoading, error: usersError } = useQuery({
         queryKey: ['users'],
         queryFn: getUsers,
     });
@@ -50,11 +49,11 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
         const newFilters = { ...filters, [key]: value };
         setFilters(newFilters);
 
-        // ✅ Nếu thay đổi groupBy thì truyền thêm tham số groupBy riêng
         if (key === 'groupBy') {
+            setGroupBy(value as GroupBy);
             onChange(newFilters, value as GroupBy);
         } else {
-            onChange(newFilters, filters.groupBy);
+            onChange(newFilters, groupBy);
         }
     };
 
@@ -74,6 +73,15 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
             handleChange('minTotal', min ?? undefined);
             handleChange('maxTotal', max ?? undefined);
         }
+    };
+
+    // ✅ Hàm reset toàn bộ bộ lọc về mặc định
+    const handleReset = () => {
+        setFilters(defaultState.filters);
+        setGroupBy(defaultState.groupBy);
+        setTempTotals({});
+        setErrors({});
+        onChange(defaultState.filters, defaultState.groupBy);
     };
 
     return (
@@ -142,7 +150,7 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
                 <Select
                     placeholder="Nhóm theo"
                     allowClear
-                    value={filters.groupBy || 'month'}
+                    value={groupBy}
                     onChange={(value) => handleChange('groupBy', value)}
                     style={{ width: '100%' }}
                 >
@@ -207,7 +215,15 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
                         onBlur={() => handleBlur('maxTotal')}
                     />
                 </Form.Item>
+                <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
+                    <Button onClick={handleReset}>Reset bộ lọc</Button>
+                </div>
             </div>
+
+            {/* 🔹 Nút Reset */}
+            {/* <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
+                <Button onClick={handleReset}>Reset bộ lọc</Button>
+            </div> */}
         </div>
     );
 }
