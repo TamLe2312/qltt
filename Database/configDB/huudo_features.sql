@@ -95,23 +95,69 @@ CREATE TYPE inventory_status AS ENUM (
 );
 
 
--- Tạo hàm trigger
-CREATE OR REPLACE FUNCTION inactivate_inventories_when_product_deleted()
+CREATE OR REPLACE FUNCTION handle_soft_delete_product()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Kiểm tra: chỉ thực hiện khi deleted_at thay đổi từ NULL → có giá trị
   IF NEW.deleted_at IS NOT NULL AND OLD.deleted_at IS NULL THEN
     UPDATE inventories
     SET status = 'inactive'
     WHERE product_id = NEW.id;
   END IF;
-
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Gắn trigger vào bảng products
-CREATE TRIGGER trg_product_soft_delete
-AFTER UPDATE ON products
+CREATE TRIGGER trg_soft_delete_product
+BEFORE UPDATE ON products
 FOR EACH ROW
-EXECUTE FUNCTION inactivate_inventories_when_product_deleted();
+EXECUTE FUNCTION handle_soft_delete_product();
+
+CREATE TABLE order_status_transitions (
+    from_status order_status NOT NULL,
+    to_status order_status NOT NULL,
+    PRIMARY KEY (from_status, to_status)
+);
+INSERT INTO order_status_transitions (from_status, to_status) VALUES
+-- flow chuẩn
+('pending', 'confirmed'),
+('confirmed', 'processing'),
+('processing', 'shipped'),
+('shipped', 'delivered'),
+
+-- flow hủy/ thất bại
+('pending', 'canceled'),
+('confirmed', 'canceled'),
+('processing', 'canceled'),
+('shipped', 'canceled'),
+('pending', 'failed'),
+('processing', 'failed'),
+
+-- hoàn tiền / refunded
+('delivered', 'refunded'),
+('canceled', 'refunded'),
+('completed', 'refunded'),
+
+-- hoàn tất
+('delivered', 'completed');
+CREATE OR REPLACE FUNCTION change_order_status(p_order_id INT, p_new_status order_status)
+RETURNS VOID AS $$
+DECLARE
+    v_current_status order_status;
+BEGIN
+    -- Lấy trạng thái hiện tại
+    SELECT status INTO v_current_status FROM orders WHERE id = p_order_id;
+
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM order_status_transitions
+        WHERE from_status = v_current_status AND to_status = p_new_status
+    ) THEN
+        RAISE EXCEPTION 'Cannot change status from % to %', v_current_status, p_new_status;
+    END IF;
+
+    -- Cập nhật trạng thái
+    UPDATE orders SET status = p_new_status, updated_at = NOW() WHERE id = p_order_id;
+END;
+$$ LANGUAGE plpgsql;
+-- Thử chuyển trạng thái
+SELECT change_order_status(50, 'processing'); -- chỉ hợp lệ nếu từ confirmed
