@@ -26,21 +26,6 @@ export const getApi = async <T = any>(
   }
 };
 
-// Ví dụ sử dụng
-// const fetchUsers = async (page = 1, perPage = 10, sortField = 'name', sortOrder: 'asc' | 'desc' = 'asc') => {
-//   const response = await getApi<TableData<Item>>('/users', {
-//     page,
-//     perPage,
-//     sortField,
-//     sortOrder,
-//   });
-
-//   console.log('Items:', response.items);
-//   console.log('Trang hiện tại:', response.pagination.page);
-//   console.log('Sắp xếp theo:', response.sort.field, response.sort.order);
-// };
-
-
 // Hàm tiện ích POST request
 export const postApi = async <T>(
   url: string,
@@ -76,6 +61,29 @@ export const deleteApi = async <T = any>(
   }
 };
 
+export const putApi = async <T>(
+  url: string,
+  data?: any,
+  config?: AxiosRequestConfig
+): Promise<T> => {
+  try {
+    const response = await axios.put<T>(url, data, {
+      headers: {
+        "Content-Type": "application/json",
+        ...config?.headers,
+      },
+      ...config,
+    });
+    return response.data;
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(
+        `API Error: ${error.response?.status} - ${error.response?.statusText}`
+      );
+    }
+    throw error;
+  }
+};
 
 
 

@@ -268,6 +268,31 @@ const deleteOrder = async (req, res) => {
   }
 };
 
+const changeOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!id || !status) {
+      return res.status(400).json({
+        status: "error",
+        message: "Order ID and new status are required",
+      });
+    }
+
+    // Thực hiện gọi function change_order_status trong Postgres
+    await pool.query(`SELECT change_order_status($1, $2::order_status)`, [id, status]);
+
+    res.json({
+      status: "success",
+      message: `Order status updated to '${status}'`,
+    });
+  } catch (err) {
+    handlePgError(err, res);
+  }
+};
+
+
 module.exports = {
   orderController: {
     getAllOrders,
@@ -276,6 +301,7 @@ module.exports = {
     deleteOrder,
     getOrderProducts,
     getOrdersStatistics,
-    getOrderById
+    getOrderById,
+    changeOrderStatus
   },
 };

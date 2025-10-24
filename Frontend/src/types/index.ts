@@ -21,14 +21,14 @@ export interface Order {
     customer_address_id: string;
     user_id: string;
     branch_id: string;
-    status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled';
+    status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled' | 'failed' | 'refunded' | 'confirmed' | 'canceled';
     note: string;
     total_amount: number;
-    shipping_street: string;
-    shipping_ward: string;
-    shipping_district: string;
-    shipping_city: string;
-    shipping_zipcode: string;
+    street: string;
+    ward: string;
+    district: string;
+    city: string;
+    zipcode: string;
 
     created_at: string;
     updated_at: string;

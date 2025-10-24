@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getApi, formatDate } from '../../../utils';
+import { getApi, putApi, formatDate } from '../../../utils';
 import { OrderDetail } from '../../../types';
+import toast from 'react-hot-toast';
 import Button from '../../../components/ui/form/Button';
 import Card from '../../../components/ui/data-display/Card';
 import Table from '../../../components/ui/data-display/Table';
@@ -13,7 +14,7 @@ interface OrderWithRelations {
     order_code: string;
     user_id: string;
     branch_id: string;
-    status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+    status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'canceled' | 'failed' | 'refunded' | 'completed';
     total_amount: string;
     created_at: string;
     updated_at: string | null;
@@ -22,10 +23,37 @@ interface OrderWithRelations {
     note?: string;
 }
 
+// flow trạng thái hợp lệ
+const STATUS_FLOW: Record<string, string[]> = {
+    pending: ['confirmed', 'canceled', 'failed'],
+    confirmed: ['processing', 'canceled'],
+    processing: ['shipped', 'canceled', 'failed'],
+    shipped: ['delivered', 'canceled', 'failed'],
+    delivered: ['completed', 'refunded'],
+    canceled: ['refunded'],
+    completed: ['refunded'],
+    failed: [],
+    refunded: [],
+};
+
+const ALL_STATUS_LABELS: Record<string, string> = {
+    pending: 'Pending',
+    confirmed: 'Confirmed',
+    processing: 'Processing',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    canceled: 'Canceled',
+    failed: 'Failed',
+    refunded: 'Refunded',
+    completed: 'Completed',
+};
+
 const OrderDetails: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [status, setStatus] = useState<string>('');
+    const [initialStatus, setInitialStatus] = useState<string>('');
 
     // === Fetch chi tiết đơn hàng ===
     const getOrder = async () => getApi(`${process.env.REACT_APP_API_URL}/api/orders/${id}`);
@@ -35,6 +63,14 @@ const OrderDetails: React.FC = () => {
     });
     const order: OrderWithRelations | null = orderResponse?.data ?? null;
 
+    // === Đồng bộ status khi order thay đổi từ API ===
+    useEffect(() => {
+        if (order && order.status) {
+            setStatus(order.status);
+            setInitialStatus(order.status); // lưu trạng thái ban đầu
+        }
+    }, [order]);
+
     // === Fetch chi tiết sản phẩm ===
     const getOrderDetails = async () => getApi(`${process.env.REACT_APP_API_URL}/api/orders/${id}/products`);
     const { data: detailsResponse, isLoading: isDetailsLoading } = useQuery({
@@ -43,16 +79,42 @@ const OrderDetails: React.FC = () => {
     });
     const orderDetails: OrderDetail[] = detailsResponse?.data.items ?? [];
 
-    // === Màu trạng thái ===
-    const getStatusColor = (status: OrderWithRelations['status']) => {
-        switch (status) {
-            case 'pending': return 'bg-yellow-100 text-yellow-800';
-            case 'processing': return 'bg-blue-100 text-blue-800';
-            case 'shipped': return 'bg-purple-100 text-purple-800';
-            case 'delivered': return 'bg-green-100 text-green-800';
-            case 'cancelled': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
+    // === Mutation đổi trạng thái ===
+    const changeStatusMutation = useMutation({
+        mutationFn: (newStatus: string) =>
+            putApi(`${process.env.REACT_APP_API_URL}/api/orders/${id}/status`, { status: newStatus }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['order', id] });
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            toast.success('Đổi trạng thái thành công!');
+        },
+        onError: (err: unknown) => {
+            console.error('Change order status failed', err);
+            toast.error('Không thể thay đổi trạng thái. Kiểm tra flow trạng thái!');
+        },
+    });
+
+    // === Xử lý khi chọn dropdown ===
+    const handleChangeStatus = (newStatus: string) => {
+        setStatus(newStatus);
+    };
+
+    const handleUpdateStatus = () => {
+        if (status === initialStatus) {
+            toast('Bạn chưa chọn trạng thái khác so với ban đầu!', { icon: '⚠️' });
+            return;
         }
+        changeStatusMutation.mutate(status);
+    };
+
+    // === Lấy các trạng thái hợp lệ dựa trên trạng thái hiện tại ===
+    const getAvailableStatuses = (current: string) => {
+        const nextStatuses = STATUS_FLOW[current] || [];
+        const options = nextStatuses.map((s) => ({ value: s, label: ALL_STATUS_LABELS[s] }));
+        if (!options.find((o) => o.value === current)) {
+            options.unshift({ value: current, label: ALL_STATUS_LABELS[current] });
+        }
+        return options;
     };
 
     const columns = [
@@ -103,23 +165,23 @@ const OrderDetails: React.FC = () => {
                             <p className="font-medium text-gray-700">{Number(order.total_amount).toLocaleString()} VNĐ</p>
                         </div>
 
-                        <div className="sm:col-span-2 md:col-span-1">
-                            <p className="text-sm text-gray-500 mb-1">Trạng thái</p>
+                        <div className="sm:col-span-2 md:col-span-1 flex items-center gap-2">
                             <DropdownSelect
-                                value={status !== '' ? status : order?.status ?? 'pending'}
-                                onChange={(val) => setStatus(String(val))}
+                                value={status}
+                                onChange={(val) => handleChangeStatus(String(val))}
                                 placeholder="Chọn trạng thái"
-                                data={[
-                                    { value: 'pending', label: 'Pending' },
-                                    { value: 'processing', label: 'Processing' },
-                                    { value: 'shipped', label: 'Shipped' },
-                                    { value: 'delivered', label: 'Delivered' },
-                                    { value: 'cancelled', label: 'Cancelled' },
-                                ]}
-                                labelKey="label" 
-                                valueKey="value" 
+                                data={getAvailableStatuses(order.status)}
+                                labelKey="label"
+                                valueKey="value"
+                                className="flex-1"
                             />
-
+                            <Button
+                                className="h-[38px] flex-shrink-0"
+                                onClick={handleUpdateStatus}
+                                disabled={changeStatusMutation.isPending}
+                            >
+                                {changeStatusMutation.isPending ? 'Đang đổi...' : 'Đổi trạng thái'}
+                            </Button>
                         </div>
 
                         {order.note && (
