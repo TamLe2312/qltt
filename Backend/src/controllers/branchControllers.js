@@ -1,128 +1,164 @@
-const { pool } = require("../config/db.js");
-const handlePgError = require("../middlewares/handlePgError.js");
+const { QueryTypes } = require("sequelize");
+const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 
 const getAllBranches = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
-    const { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
-    const offset = (page - 1) * limit;
+    const { limit, page, sortBy, sortOrder } = req.query;
 
-    const result = await pool.query(
-      `SELECT * FROM branches
-        WHERE branches.deleted_at IS NULL
-        ORDER BY ${sortField} ${sortOrder === 'desc' ? 'DESC' : 'ASC'}
-        LIMIT $1 OFFSET $2`,
-      [limit, offset]
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
+
+    const sortMap = {
+      id: "id",
+      name: "name",
+      created_at: "created_at",
+    };
+
+    const allowedSortColumns = Object.keys(sortMap);
+    const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "created_at";
+    const sortColumn = sortMap[sortKey];
+    const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
+
+    const results = await dbHeadOffice.query(
+      `SELECT id, name, street, ward, district, city, country, zipcode, email, phone, created_at FROM branches
+      WHERE deleted_at IS NULL
+       ORDER BY ${sortColumn} ${sortDir}
+       OFFSET ? ROWS
+       FETCH NEXT ? ROWS ONLY`,
+      {
+        replacements: [offsetNum, limitNum],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    const totalResult = await pool.query(`SELECT COUNT(*) AS total FROM branches`);
-    const total = parseInt(totalResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
+    const countResult = await dbHeadOffice.query(
+      "SELECT COUNT(*) AS totalCount FROM branches WHERE deleted_at IS NULL",
+      {
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
+    const total = parseInt(countResult[0].totalCount, 10);
+    const totalPages = Math.ceil(total / limitNum);
 
+    await t.commit();
     res.json({
       data: {
-        items: result.rows,
+        items: results,
         pagination: {
           total,
-          page,
-          perPage: limit,
+          pageNum,
+          perPage: limitNum,
           totalPages,
         },
         sort: {
-          field: sortField,
-          order: sortOrder,
+          field: sortColumn,
+          order: sortDir,
         },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const getAllProductsByBranch = async (req, res) => {
+  let t;
   try {
-    const branchId = parseInt(req.params.id, 10);
-    const { limit = 20, page = 1, sortField = 'p.created_at', sortOrder = 'asc' } = req.query;
-    const offset = (page - 1) * limit;
+    const { branch_id } = req.query;
 
-    // ✅ Lấy danh sách sản phẩm thuộc chi nhánh
-    const result = await pool.query(`
+    const { limit, page, sortBy, sortOrder } = req.query;
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
+
+    const sortMap = {
+      id: "p.id",
+      product_name: "p.name",
+      price: "p.price",
+      quantity: "quantity",
+      created_at: "p.created_at",
+    };
+
+    const allowedSortColumns = Object.keys(sortMap);
+    const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "created_at";
+    const sortColumn = sortMap[sortKey];
+    const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
+
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+
+    const result = await db.query(
+      `
       SELECT 
         p.id,
         p.name AS product_name,
         p.price,
         (i.quantity - i.reserved_stock) AS quantity
-      FROM inventories AS i
-      JOIN products AS p
+        FROM inventories AS i
+        JOIN products AS p
         ON i.product_id = p.id
-      JOIN suppliers AS s
+        JOIN suppliers AS s
         ON i.supplier_id = s.id
-      WHERE i.branch_id = $1
-      ORDER BY ${sortField} ${sortOrder === 'desc' ? 'DESC' : 'ASC'}
-      LIMIT $2 OFFSET $3
+        WHERE i.branch_id = ?
+        ORDER BY ${sortColumn} ${sortDir}
+        OFFSET ? ROWS
+        FETCH NEXT ? ROWS ONLY
       `,
-      [branchId, limit, offset]
+      {
+        replacements: [branch_id, offsetNum, limitNum],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    // ✅ Lấy tổng số bản ghi
-    const totalResult = await pool.query(
-      `SELECT COUNT(*) AS total FROM inventories WHERE branch_id = $1`,
-      [branchId]
+    const totalResult = await db.query(
+      `SELECT COUNT(*) AS total FROM inventories WHERE branch_id = ?`,
+      {
+        replacements: [branch_id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    const total = parseInt(totalResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
+    const total = parseInt(totalResult[0].total, 10);
+    const totalPages = Math.ceil(total / limitNum);
 
-    // ✅ Trả kết quả
+    await t.commit();
     res.json({
       data: {
-        items: result.rows,
+        items: result,
         pagination: {
           total,
-          page,
-          perPage: limit,
+          pageNum,
+          perPage: limitNum,
           totalPages,
         },
         sort: {
-          field: sortField,
-          order: sortOrder,
+          field: sortColumn,
+          order: sortDir,
         },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
-  }
-};
-
-
-const createBranch = async (req, res) => {
-  try {
-    const {
-      name,
-      street,
-      ward,
-      district,
-      city,
-      country,
-      zipcode,
-      email,
-      phone,
-    } = req.body;
-    await pool.query(
-      `INSERT INTO branches (name, street, ward, district, city, country, zipcode, email, phone)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [name, street, ward, district, city, country, zipcode, email, phone]
-    );
-    res.status(201).json({ message: "Branch created" });
-  } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const updateBranch = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { id } = req.params;
     const {
@@ -136,44 +172,50 @@ const updateBranch = async (req, res) => {
       email,
       phone,
     } = req.body;
-    const result = await pool.query(
-      `UPDATE branches
-        SET name = $1, street = $2, ward = $3, district = $4, city = $5, country = $6, zipcode = $7, email = $8, phone = $9
-        WHERE id = $10
-        RETURNING *`,
-      [name, street, ward, district, city, country, zipcode, email, phone, id]
+
+    const result = await dbHeadOffice.query(
+      `
+      UPDATE branches
+      SET name = ?, street = ?, ward = ?, district = ?, city = ?, 
+      country = ?, zipcode = ?, email = ?, phone = ?, updated_at = SYSDATETIME()
+      OUTPUT INSERTED.*
+      WHERE id = ?
+    `,
+      {
+        replacements: [
+          name,
+          street,
+          ward,
+          district,
+          city,
+          country,
+          zipcode,
+          email,
+          phone,
+          id,
+        ],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
-    if (result.rows.length === 0) {
+
+    if (result.length === 0) {
       return res.status(404).json({ message: "Branch not found" });
     }
+
+    await t.commit();
     res.json({ message: "Branch updated" });
   } catch (err) {
-    handlePgError(err, res);
-  }
-};
-
-const deleteBranch = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query(
-      "DELETE FROM branches WHERE id = $1 RETURNING *",
-      [id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Branch not found" });
-    }
-    res.json({ message: "Branch deleted" });
-  } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 module.exports = {
   branchController: {
     getAllBranches,
-    createBranch,
     updateBranch,
-    deleteBranch,
-    getAllProductsByBranch
+    getAllProductsByBranch,
   },
 };

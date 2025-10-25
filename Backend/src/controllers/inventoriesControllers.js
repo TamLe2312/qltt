@@ -1,57 +1,37 @@
-const { pool } = require("../config/db.js");
-const handlePgError = require("../middlewares/handlePgError.js");
-
-// const getAllInventories = async (req, res) => {
-//   try {
-//     const { limit, page, sortBy, sortOrder } = req.query;
-//     const offset = page && limit ? (page - 1) * limit : 0;
-//     const results = await pool.query(
-//       `
-//         SELECT i.id, p.id AS product_id, p.name AS product_name, p.sku, s.id AS supplier_id, s.name AS supplier_name, i.quantity, i.reserved_stock, b.id AS branch_id, b.name AS branch_name
-//         FROM inventories i
-//         JOIN products p ON i.product_id = p.id
-//         JOIN suppliers s ON i.supplier_id = s.id
-//         JOIN branches b ON i.branch_id = b.id
-//         ORDER BY ${sortBy || "i.id"} ${sortOrder === "desc" ? "DESC" : "ASC"}
-//         LIMIT $1 OFFSET $2
-//         `,
-//       [limit || 20, offset]
-//     );
-//     const countResult = await pool.query("SELECT COUNT(*) FROM inventories;");
-//     res.json({ data: results.rows, total: countResult.rows[0].count });
-//   } catch (error) {
-//     handlePgError(error, res);
-//   }
-// };
+const { QueryTypes } = require("sequelize");
+const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 
 const getAllInventories = async (req, res) => {
+  let t;
   try {
-    let { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
-    limit = parseInt(limit, 10);
-    page = parseInt(page, 10);
-    const offset = (page - 1) * limit;
+    const { limit, page, sortBy, sortOrder, branch_id } = req.query;
 
-    console.log("Query params:", req.query);
-    console.log("Limit:", limit, "Page:", page, "Offset:", offset);
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
 
-    // Mapping client sortField sang tên cột thực tế trong DB
-    const sortFieldMap = {
-      id: 'i.id',
-      product_name: 'p.name',
-      sku: 'p.sku',
-      supplier_name: 's.name',
-      branch_name: 'b.name',
-      quantity: 'i.quantity',
-      reserved_stock: 'i.reserved_stock',
-      created_at: 'i.created_at'
+    const sortMap = {
+      id: "i.id",
+      product_name: "p.name",
+      sku: "p.sku",
+      supplier_name: "s.name",
+      branch_name: "b.name",
+      quantity: "i.quantity",
+      reserved_stock: "i.reserved_stock",
+      created_at: "i.created_at",
     };
-    const dbSortField = sortFieldMap[sortField] ?? sortFieldMap['created_at'];
-    sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-    const result = await pool.query(
+    const allowedSortColumns = Object.keys(sortMap);
+    const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "created_at";
+    const sortColumn = sortMap[sortKey];
+    const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
+
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+    const results = await db.query(
       `
       SELECT 
-        i.id, i.status, 
+        i.id, 
         p.id AS product_id, p.name AS product_name, p.sku, 
         s.id AS supplier_id, s.name AS supplier_name, 
         i.quantity, i.reserved_stock, 
@@ -60,99 +40,155 @@ const getAllInventories = async (req, res) => {
       JOIN products p ON i.product_id = p.id
       JOIN suppliers s ON i.supplier_id = s.id
       JOIN branches b ON i.branch_id = b.id
-      WHERE i.deleted_at IS NULL
-      ORDER BY ${dbSortField} ${sortOrder}
-      LIMIT $1 OFFSET $2
+      WHERE i.deleted_at IS NULL AND i.branch_id = ?
+      ORDER BY ${sortColumn} ${sortDir}
+      OFFSET ? ROWS
+      FETCH NEXT ? ROWS ONLY
       `,
-      [limit, offset]
+      {
+        replacements: [branch_id, offsetNum, limitNum],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    const totalResult = await pool.query(`SELECT COUNT(*) AS total FROM inventories`);
-    const total = parseInt(totalResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
+    const countResult = await dbHeadOffice.query(
+      "SELECT COUNT(*) AS totalCount FROM inventories WHERE deleted_at IS NULL AND branch_id = ?",
+      {
+        replacements: [branch_id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
+    const total = parseInt(countResult[0].totalCount, 10);
+    const totalPages = Math.ceil(total / limitNum);
 
+    await t.commit();
     res.json({
       data: {
-        items: result.rows,
+        items: results,
         pagination: {
           total,
-          page,
-          perPage: limit,
+          pageNum,
+          perPage: limitNum,
           totalPages,
         },
         sort: {
-          field: sortField,
-          order: sortOrder,
+          field: sortColumn,
+          order: sortDir,
         },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
-
 const createInventory = async (req, res) => {
+  let t;
   try {
-    const { product_id, supplier_id, branch_id, quantity } = req.body;
+    const { branch_id } = req.query;
+    const { product_id, supplier_id, quantity } = req.body;
 
-    await pool.query(
-      "INSERT INTO inventories (product_id, supplier_id, branch_id, quantity) VALUES ($1, $2, $3, $4) RETURNING *",
-      [product_id, supplier_id, branch_id, quantity]
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+    const result = await db.query(
+      `INSERT INTO inventories (product_id, supplier_id, branch_id, quantity) 
+      OUTPUT INSERTED.id
+      VALUES (?, ?, ?, ?)`,
+      {
+        replacements: [product_id, supplier_id, branch_id, quantity],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
-    res.status(201).json({ message: "Branch created" });
+
+    if (!result || result.length === 0) {
+      throw new Error("Inventory creation failed, no ID returned.");
+    }
+
+    await t.commit();
+    res.status(201).json({ message: "Inventory created" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const updateInventory = async (req, res) => {
+  let t;
   try {
     const { id } = req.params;
     const { product_id, supplier_id, quantity } = req.body;
-    const result = await pool.query(
+    const { branch_id } = req.query;
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+    const result = await db.query(
       `UPDATE inventories 
-       SET product_id = $1, supplier_id = $2, quantity = $3
-        WHERE id = $4 RETURNING *`,
-      [product_id, supplier_id, quantity, id]
+       SET product_id = ?, supplier_id = ?, quantity = ?,
+       updated_at = SYSDATETIME()
+       OUTPUT INSERTED.*
+       WHERE id = ?`,
+      {
+        replacements: [product_id, supplier_id, quantity, id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
-    if (result.rowCount === 0) {
+
+    if (result.length === 0) {
       return res.status(404).json({ message: "Inventory not found" });
     }
+
+    await t.commit();
     res.json({ message: "Inventory updated" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const deleteInventory = async (req, res) => {
+  let t;
   try {
     const { id } = req.params;
 
-    // Kiểm tra bản ghi tồn tại và chưa bị soft delete
-    const { rows } = await pool.query(
-      "SELECT id FROM inventories WHERE id = $1 AND deleted_at IS NULL",
-      [id]
+    const { branch_id } = req.query;
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+
+    const [result, metadata] = await db.query(
+      "DELETE FROM inventories WHERE id = ? AND deleted_at IS NULL",
+      {
+        replacements: [id],
+        transaction: t,
+      }
     );
 
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Inventory not found or already deleted" });
+    if (metadata.affectedCount === 0) {
+      await t.rollback();
+      return res
+        .status(404)
+        .json({ message: "Inventory not found or already deleted" });
     }
 
-    // Thực hiện DELETE (trigger sẽ cập nhật deleted_at)
-    await pool.query("DELETE FROM inventories WHERE id = $1", [id]);
-
+    await t.commit();
     res.json({
       status: "success",
-      message: "Inventory deleted (soft delete triggered)"
+      message: "Inventory deleted",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
-
 
 module.exports = {
   inventoriesController: {

@@ -1,57 +1,74 @@
-const { pool } = require("../config/db.js");
-const handlePgError = require("../middlewares/handlePgError.js");
+const { QueryTypes } = require("sequelize");
+const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 
 const getAllSuppliers = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
-    let { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
-    limit = parseInt(limit, 10);
-    page = parseInt(page, 10);
-    const offset = (page - 1) * limit;
+    const { limit, page, sortBy, sortOrder } = req.query;
 
-    // Danh sách cột cho phép sắp xếp để tránh SQL injection
-    const allowedSortFields = ['id', 'name', 'created_at'];
-    if (!allowedSortFields.includes(sortField)) sortField = 'created_at';
-    sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
 
-    // Truy vấn danh sách suppliers với phân trang và sắp xếp
-    const result = await pool.query(
-      `SELECT * FROM suppliers
-        WHERE suppliers.deleted_at IS NULL
-       ORDER BY ${sortField} ${sortOrder}
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
+    const sortMap = {
+      id: "id",
+      name: "name",
+      created_at: "created_at",
+    };
+
+    const allowedSortColumns = Object.keys(sortMap);
+    const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "created_at";
+    const sortColumn = sortMap[sortKey];
+    const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
+    const results = await dbHeadOffice.query(
+      `SELECT id, name, street, ward, district, city, country, zipcode, email, phone, created_at FROM suppliers
+      WHERE deleted_at IS NULL
+       ORDER BY ${sortColumn} ${sortDir}
+       OFFSET ? ROWS
+       FETCH NEXT ? ROWS ONLY`,
+      {
+        replacements: [offsetNum, limitNum],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    // Truy vấn tổng số bản ghi
-    const totalResult = await pool.query(`SELECT COUNT(*) AS total FROM suppliers`);
-    const total = parseInt(totalResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
+    const totalResult = await dbHeadOffice.query(
+      `SELECT COUNT(*) AS total FROM suppliers WHERE deleted_at IS NULL`,
+      {
+        type: QueryTypes.SELECT,
+      }
+    );
+    const total = parseInt(totalResult[0].total, 10);
+    const totalPages = Math.ceil(total / limitNum);
 
-    // Trả dữ liệu theo định dạng chuẩn
+    await t.commit();
     res.json({
       data: {
-        items: result.rows,
+        items: results,
         pagination: {
           total,
-          page,
-          perPage: limit,
+          pageNum,
+          perPage: limitNum,
           totalPages,
         },
         sort: {
-          field: sortField,
-          order: sortOrder,
+          field: sortColumn,
+          order: sortDir,
         },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
-
 const createSupplier = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const {
       name,
@@ -64,18 +81,37 @@ const createSupplier = async (req, res) => {
       email,
       phone,
     } = req.body;
-    await pool.query(
+
+    await dbHeadOffice.query(
       `INSERT INTO suppliers (name, street, ward, district, city, country, zipcode, email, phone)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [name, street, ward, district, city, country, zipcode, email, phone]
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      {
+        replacements: [
+          name,
+          street,
+          ward,
+          district,
+          city,
+          country,
+          zipcode,
+          email,
+          phone,
+        ],
+        type: QueryTypes.INSERT,
+        transaction: t,
+      }
     );
+    await t.commit();
     res.status(201).json({ message: "Supplier created" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const updateSupplier = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { id } = req.params;
     const {
@@ -90,48 +126,70 @@ const updateSupplier = async (req, res) => {
       phone,
     } = req.body;
 
-    const result = await pool.query(
+    const result = await dbHeadOffice.query(
       `UPDATE suppliers
-        SET name = $1, street = $2, ward = $3, district = $4, city = $5, country = $6, zipcode = $7, email = $8, phone = $9
-        WHERE id = $10
-        RETURNING *`,
-      [name, street, ward, district, city, country, zipcode, email, phone, id]
+        SET name = ?, street = ?, ward = ?, district = ?, city = ?, country = ?, zipcode = ?, email = ?, phone = ?, updated_at = SYSDATETIME()
+        OUTPUT INSERTED.*
+        WHERE id = ?`,
+      {
+        replacements: [
+          name,
+          street,
+          ward,
+          district,
+          city,
+          country,
+          zipcode,
+          email,
+          phone,
+          id,
+        ],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ message: "Supplier not found" });
     }
+    await t.commit();
     res.json({ message: "Supplier updated" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const deleteSupplier = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { id } = req.params;
 
-    // Kiểm tra bản ghi tồn tại và chưa bị soft delete
-    const { rows } = await pool.query(
-      "SELECT id FROM suppliers WHERE id = $1 AND deleted_at IS NULL",
-      [id]
+    const [result, metadata] = await dbHeadOffice.query(
+      "DELETE FROM suppliers WHERE id = ? AND deleted_at IS NULL",
+      {
+        replacements: [id],
+        transaction: t,
+      }
     );
 
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Supplier not found or already deleted" });
+    if (metadata.affectedCount === 0) {
+      await t.rollback();
+      return res
+        .status(404)
+        .json({ message: "Supplier not found or already deleted" });
     }
-
-    // Thực hiện DELETE (trigger soft delete sẽ cập nhật deleted_at)
-    await pool.query("DELETE FROM suppliers WHERE id = $1", [id]);
-
+    await t.commit();
     res.json({
       status: "success",
-      message: "Supplier deleted (soft delete triggered)"
+      message: "Supplier deleted",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
-
 
 module.exports = {
   supplierController: {

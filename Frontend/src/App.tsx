@@ -1,45 +1,45 @@
-import { Routes, Route } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import AdminLayout from './components/layout/admin/AdminLayout';
-import UserLayout from './components/layout/user/UserLayout';
-import Home from './pages/user/Home';
-import ProductCreate from './pages/admin/Products/ProductCreate';
-import OrderCreate from './pages/admin/Orders/OrderCreate';
-import NotFound from './pages/error/NotFound';
-import Test from './pages/test/Test';
-import OrderDetails from './pages/admin/Orders/OrderDetails';
-import Orders from './pages/admin/Orders/Orders';
-import Products from './pages/admin/Products/Products';
-import { TOAST_CONFIG } from './configs';
-import Branches from './pages/admin/Branches/Branches';
-import Categories from './pages/admin/Categories/Categories';
-import Suppliers from './pages/admin/Suppliers/Suppliers';
-import Inventories from './pages/admin/Inventories/Inventories';
-import Users from './pages/admin/Users/Users';
-import OrderStatistics from './pages/admin/Orders/OrderStatistics';
+import { Routes, Route } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import AdminLayout from "./components/layout/admin/AdminLayout";
+import UserLayout from "./components/layout/user/UserLayout";
+import Home from "./pages/user/Home";
+import ProductCreate from "./pages/admin/Products/ProductCreate";
+import OrderCreate from "./pages/admin/Orders/OrderCreate";
+import NotFound from "./pages/error/NotFound";
+import Test from "./pages/test/Test";
+import OrderDetails from "./pages/admin/Orders/OrderDetails";
+import Orders from "./pages/admin/Orders/Orders";
+import Products from "./pages/admin/Products/Products";
+import { TOAST_CONFIG } from "./configs";
+import Branches from "./pages/admin/Branches/Branches";
+import Categories from "./pages/admin/Categories/Categories";
+import Suppliers from "./pages/admin/Suppliers/Suppliers";
+import Inventories from "./pages/admin/Inventories/Inventories";
+import Users from "./pages/admin/Users/Users";
+import OrderStatistics from "./pages/admin/Orders/OrderStatistics";
 
 const adminRoutes = [
   { index: true, element: <Orders /> },
 
-  { path: 'branches', element: <Branches /> },
+  { path: "branches", element: <Branches /> },
 
-  { path: 'categories', element: <Categories /> },
+  { path: "categories", element: <Categories /> },
 
-  { path: 'suppliers', element: <Suppliers /> },
+  { path: "suppliers", element: <Suppliers /> },
 
-  { path: 'inventories', element: <Inventories /> },
+  { path: "inventories", element: <Inventories /> },
 
-  { path: 'users', element: <Users /> },
+  { path: "users", element: <Users /> },
 
-  { path: 'products', element: <Products /> },
-  { path: 'products/create', element: <ProductCreate /> },
+  { path: "products", element: <Products /> },
+  { path: "products/create", element: <ProductCreate /> },
 
-  { path: 'orders', element: <Orders /> },
-  { path: 'orders/create', element: <OrderCreate /> },
-  { path: 'orders/:id/products', element: <OrderDetails /> },
-  { path: 'orders/statistics', element: <OrderStatistics /> },
+  { path: "orders", element: <Orders /> },
+  { path: "orders/create", element: <OrderCreate /> },
+  { path: "orders/:id/products", element: <OrderDetails /> },
+  { path: "orders/statistics", element: <OrderStatistics /> },
 
-  { path: 'test', element: <Test /> },
+  { path: "test", element: <Test /> },
 ];
 
 function App() {
@@ -58,7 +58,7 @@ function App() {
 
         <Route path="*" element={<NotFound />} />
 
-        <Route path="/" element={<UserLayout />} >
+        <Route path="/" element={<UserLayout />}>
           <Route index element={<Home />} />
         </Route>
         <Route path="*" element={<NotFound />} />
@@ -70,21 +70,21 @@ function App() {
         toastOptions={{
           duration: TOAST_CONFIG.DURATION,
           style: {
-            background: '#363636',
-            color: '#fff',
+            background: "#363636",
+            color: "#fff",
           },
           success: {
             duration: 4000,
             iconTheme: {
-              primary: '#10B981',
-              secondary: '#fff',
+              primary: "#10B981",
+              secondary: "#fff",
             },
           },
           error: {
             duration: 2000,
             iconTheme: {
-              primary: '#EF4444',
-              secondary: '#fff',
+              primary: "#EF4444",
+              secondary: "#fff",
             },
           },
         }}

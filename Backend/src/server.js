@@ -2,8 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
-const { CONNECT_DB } = require("./config/db.js");
 const { APIs } = require("./routes/index.js");
+const { CONNECT_DB } = require("./config/db.js");
 
 dotenv.config();
 
@@ -13,12 +13,6 @@ const START_SERVER = async () => {
 
   const app = express();
   app.use(cookieParser());
-  // app.use(
-  //   cors({
-  //     origin: ["http://localhost:3000", "http://localhost:3001"],
-  //     credentials: true,
-  //   })
-  // );
   app.use(cors());
 
   app.use(express.json());
