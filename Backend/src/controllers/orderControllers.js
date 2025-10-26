@@ -1,96 +1,124 @@
-const { pool } = require("../config/db.js");
-const handlePgError = require("../middlewares/handlePgError.js");
+const { QueryTypes, DatabaseError } = require("sequelize");
+const { dbHeadOffice, getDbByBranchId } = require("../config/db.js");
 
 const getAllOrders = async (req, res) => {
+  let t;
   try {
-    let { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
-    limit = parseInt(limit, 10);
-    page = parseInt(page, 10);
-    const offset = (page - 1) * limit;
+    const { branch_id, limit, page, sortBy, sortOrder } = req.query;
 
-    // ✅ Danh sách cột được phép sắp xếp để chống SQL injection
-    const allowedSortFields = ['id', 'order_code', 'user_id', 'branch_id', 'status', 'total_amount', 'created_at', 'updated_at'];
-    if (!allowedSortFields.includes(sortField)) sortField = 'created_at';
-    sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
 
-    // ✅ Lấy danh sách đơn hàng
-    const result = await pool.query(
+    const sortMap = {
+      id: "oc.id",
+      order_code: "oc.order_code",
+      username: "u.username",
+      branch_name: "b.name",
+      status: "oe.status",
+      total_amount: "oe.total_amount",
+      created_at: "oc.created_at",
+    };
+
+    const allowedSortColumns = Object.keys(sortMap);
+    const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "created_at";
+    const sortColumn = sortMap[sortKey];
+    const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
+
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+
+    const results = await db.query(
       `
-      SELECT o.*, u.full_name AS user_name, b.name AS branch_name
-      FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN branches b ON o.branch_id = b.id
-      ORDER BY ${sortField} ${sortOrder}
-      LIMIT $1 OFFSET $2
+      SELECT oc.id, oc.order_code, oe.status, oe.note, oe.total_amount, u.full_name AS username, b.name AS branch_name
+      FROM orders_core oc
+      LEFT JOIN users u ON oc.user_id = u.id
+      LEFT JOIN branches b ON oc.branch_id = b.id
+      LEFT JOIN orders_extra oe ON oc.id = oe.order_id
+      WHERE oc.branch_id = ?
+      ORDER BY ${sortColumn} ${sortDir}
+      OFFSET ? ROWS
+      FETCH NEXT ? ROWS ONLY
       `,
-      [limit, offset]
+      {
+        replacements: [branch_id, offsetNum, limitNum],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    // ✅ Lấy tổng số bản ghi
-    const totalResult = await pool.query(`SELECT COUNT(*) AS total FROM orders`);
-    const total = parseInt(totalResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
-
-    // ✅ Trả kết quả
+    const totalResult = await db.query(
+      `SELECT COUNT(*) AS total FROM orders_core WHERE branch_id = ?`,
+      {
+        replacements: [branch_id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
+    const total = parseInt(totalResult[0].total, 10);
+    const totalPages = Math.ceil(total / limitNum);
+    await t.commit();
     res.json({
       data: {
-        items: result.rows,
+        items: results,
         pagination: {
           total,
-          page,
-          perPage: limit,
+          page: pageNum,
+          perPage: limitNum,
           totalPages,
         },
         sort: {
-          field: sortField,
-          order: sortOrder,
+          field: sortColumn,
+          order: sortDir,
         },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const getOrdersStatistics = async (req, res) => {
   try {
-    let { filters = {}, groupBy = 'month' } = req.body;
+    let { filters = {}, groupBy = "month" } = req.body;
 
-    // ✅ Kiểm tra groupBy hợp lệ
-    const validGroups = ['day', 'month', 'quarter', 'year'];
+    const validGroups = ["day", "month", "quarter", "year"];
     if (!validGroups.includes(groupBy)) {
       return res.status(400).json({
         status: "error",
-        message: 'groupBy must be one of: day, month, quarter, year'
+        message: "groupBy must be one of: day, month, quarter, year",
       });
     }
 
-    // ✅ Log SQL trước khi thực thi
     const sql = `SELECT * FROM get_orders_statistics($1::jsonb, $2::text)`;
     console.log("SQL to execute:", sql);
     console.log("Parameters:", { filters, groupBy });
 
-    // ✅ Thực thi query
     const result = await pool.query(sql, [filters, groupBy]);
 
-    // ✅ Trả kết quả, list rỗng cũng trả 200 để phù hợp với convention
     res.json({
       data: { items: result.rows },
       status: "success",
-      message: result.rows.length ? "Fetched successfully" : "No statistics found"
+      message: result.rows.length
+        ? "Fetched successfully"
+        : "No statistics found",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const getOrderById = async (req, res) => {
+  let t;
   try {
     const { id } = req.params;
-
-    // ✅ Kiểm tra id hợp lệ
+    const { branch_id } = req.query;
     if (!id) {
       return res.status(400).json({
         status: "error",
@@ -98,20 +126,25 @@ const getOrderById = async (req, res) => {
       });
     }
 
-    // ✅ Lấy thông tin đơn hàng theo id
-    const result = await pool.query(
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+    const result = await db.query(
       `
-      SELECT o.*, u.full_name AS user_name, b.name AS branch_name
-      FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN branches b ON o.branch_id = b.id
-      WHERE o.id = $1
-      LIMIT 1
+      SELECT oc.id, oc.order_code, oe.total_amount, oe.status,u.full_name AS user_name, b.name AS branch_name
+      FROM orders_core oc
+      LEFT JOIN users u ON oc.user_id = u.id
+      LEFT JOIN branches b ON oc.branch_id = b.id
+      LEFT JOIN orders_extra oe ON oc.id = oe.order_id
+      WHERE oc.id = ?
       `,
-      [id]
+      {
+        replacements: [id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({
         status: "error",
         message: "Order not found",
@@ -119,86 +152,116 @@ const getOrderById = async (req, res) => {
     }
 
     res.json({
-      data: result.rows[0],
+      data: result[0],
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const getOrderProducts = async (req, res) => {
-  try {
-    const orderId = parseInt(req.params.id, 10);
-    const { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
-    const offset = (page - 1) * limit;
+  let t;
 
-    // ✅ Lấy danh sách sản phẩm thuộc đơn hàng
-    const result = await pool.query(
+  try {
+    const id = req.params.id;
+    const { branch_id, limit, page, sortBy, sortOrder } = req.query;
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
+
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+
+    const sortMap = {
+      product_id: "product_id",
+      product_name: "product_name",
+      quantity: "od.quantity",
+      price: "od.price",
+      subtotal: "subtotal",
+    };
+
+    const allowedSortColumns = Object.keys(sortMap);
+    const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "product_id";
+    const sortColumn = sortMap[sortKey];
+    const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
+
+    const results = await db.query(
       `
-      SELECT 
+      SELECT
         p.id AS product_id,
         p.name AS product_name,
         od.quantity,
         od.price AS unit_price,
         (od.quantity * od.price) AS subtotal
       FROM order_details AS od
-      JOIN products AS p 
-        ON od.product_id = p.id
-      WHERE od.order_id = $1
-      ORDER BY p.${sortField} ${sortOrder === 'desc' ? 'DESC' : 'ASC'}
-      LIMIT $2 OFFSET $3
+      JOIN products AS p
+      ON od.product_id = p.id
+      WHERE od.order_id = ?
+      ORDER BY ${sortColumn} ${sortDir}
+      OFFSET ? ROWS
+      FETCH NEXT ? ROWS ONLY
       `,
-      [orderId, limit, offset]
+      {
+        replacements: [id, offsetNum, limitNum],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    // ✅ Lấy tổng số sản phẩm trong đơn hàng
-    const totalResult = await pool.query(
-      `SELECT COUNT(*) AS total FROM order_details WHERE order_id = $1`,
-      [orderId]
+    const totalResult = await db.query(
+      `SELECT COUNT(*) AS total FROM order_details WHERE order_id = ?`,
+      {
+        replacements: [id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    const total = parseInt(totalResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
+    const total = parseInt(totalResult[0].total, 10);
+    const totalPages = Math.ceil(total / limitNum);
 
-    // ✅ Nếu không có sản phẩm nào
-    if (result.rows.length === 0) {
+    if (results.length === 0) {
       return res.status(404).json({
         status: "error",
         message: "No products found for this order",
       });
     }
 
-    // ✅ Trả kết quả chuẩn hóa
+    await t.commit();
     res.json({
       data: {
-        items: result.rows,
+        items: results,
         pagination: {
           total,
-          page,
-          perPage: limit,
+          page: pageNum,
+          perPage: limitNum,
           totalPages,
         },
         sort: {
-          field: sortField,
-          order: sortOrder,
+          field: sortColumn,
+          order: sortDir,
         },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
-
 const createOrder = async (req, res) => {
+  let t;
   try {
     const {
       user_id,
-      branch_id,
       note,
       products,
       street,
@@ -207,31 +270,54 @@ const createOrder = async (req, res) => {
       city,
       country,
       zipcode,
+      branch_id,
     } = req.body;
 
-    await pool.query(
-      `SELECT * FROM create_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [
-        user_id,
-        branch_id,
-        note,
-        JSON.stringify(products),
-        street,
-        ward,
-        district,
-        city,
-        country,
-        zipcode,
-      ]
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+
+    await db.query(
+      `EXEC sp_create_order 
+         @user_id = :user_id, 
+         @branch_id = :branch_id, 
+         @note = :note, 
+         @street = :street, 
+         @ward = :ward, 
+         @district = :district, 
+         @city = :city, 
+         @country = :country, 
+         @zipcode = :zipcode, 
+         @products_json = :products_json`,
+      {
+        replacements: {
+          user_id: user_id,
+          branch_id: branch_id,
+          note: note,
+          street: street,
+          ward: ward,
+          district: district,
+          city: city,
+          country: country,
+          zipcode: zipcode,
+          products_json: JSON.stringify(products),
+        },
+        type: QueryTypes.RAW,
+        transaction: t,
+      }
     );
+
+    await t.commit();
 
     res.status(201).json({ message: "Order created" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const updateOrder = async (req, res) => {
+  let t;
   try {
     const { id } = req.params;
     const { status, note, street, ward, district, city, country, zipcode } =
@@ -248,11 +334,14 @@ const updateOrder = async (req, res) => {
 
     res.json({ message: "Order updated" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const deleteOrder = async (req, res) => {
+  let t;
   try {
     const { id } = req.params;
     const result = await pool.query(
@@ -264,13 +353,17 @@ const deleteOrder = async (req, res) => {
     }
     res.json({ message: "Order deleted" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const changeOrderStatus = async (req, res) => {
+  let t;
   try {
     const { id } = req.params;
+    const { branch_id } = req.query;
     const { status } = req.body;
 
     if (!id || !status) {
@@ -280,18 +373,26 @@ const changeOrderStatus = async (req, res) => {
       });
     }
 
-    // Thực hiện gọi function change_order_status trong Postgres
-    await pool.query(`SELECT change_order_status($1, $2::order_status)`, [id, status]);
+    const db = getDbByBranchId(branch_id);
+    t = await db.transaction();
+    await db.query(`UPDATE orders_extra SET status = ? WHERE order_id = ?`, {
+      replacements: [status, id],
+      type: QueryTypes.UPDATE,
+      transaction: t,
+    });
+
+    await t.commit();
 
     res.json({
       status: "success",
       message: `Order status updated to '${status}'`,
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
-
 
 module.exports = {
   orderController: {
@@ -302,6 +403,6 @@ module.exports = {
     getOrderProducts,
     getOrdersStatistics,
     getOrderById,
-    changeOrderStatus
+    changeOrderStatus,
   },
 };

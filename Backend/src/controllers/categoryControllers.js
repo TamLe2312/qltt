@@ -46,7 +46,9 @@ const getAllCategoriesTree = async (req, res) => {
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 

@@ -20,6 +20,6 @@ Router.put(
   ]),
   productController.updateProduct
 );
-Router.delete("/:id", productController.deleteProduct);
+Router.delete("/delete/:id", productController.deleteProduct);
 
 module.exports = { productsApi: Router };

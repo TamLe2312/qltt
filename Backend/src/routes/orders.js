@@ -10,7 +10,6 @@ Router.get("/:id/products", orderController.getOrderProducts);
 Router.post("/create", upload.none(), orderController.createOrder);
 Router.put("/:id", upload.none(), orderController.updateOrder);
 
-// Đổi trạng thái đơn hàng theo flow
 Router.put("/:id/status", orderController.changeOrderStatus);
 
 Router.delete("/delete/:id", orderController.deleteOrder);

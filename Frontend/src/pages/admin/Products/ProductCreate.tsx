@@ -21,7 +21,7 @@ type ProductFormValues = {
   name: string;
   short_description?: string;
   description?: string;
-  status: "available" | "out_of_stock";
+  status: "Active" | "Inactive" | "OutOfStock" | "Discontinued";
   price: number | string;
   unit_of_measure: string;
   category_id: string;
@@ -45,7 +45,10 @@ const validationSchema = yup.object({
     .max(1000, "Mô tả tối đa 1000 ký tự"),
   status: yup
     .string()
-    .oneOf(["available", "out_of_stock"], "Trạng thái không hợp lệ")
+    .oneOf(
+      ["Active", "Inactive", "OutOfStock", "Discontinued"],
+      "Trạng thái không hợp lệ"
+    )
     .required("Vui lòng chọn trạng thái"),
   price: yup
     .number()
@@ -59,24 +62,31 @@ const validationSchema = yup.object({
     .array()
     .min(1, "Chọn 1 ảnh avatar")
     .max(1, "Chỉ được chọn 1 ảnh avatar")
-    .test("avatarType", "Avatar phải là ảnh", (files) =>
-      Array.isArray(files) && files[0]?.type?.startsWith("image/")
+    .test(
+      "avatarType",
+      "Avatar phải là ảnh",
+      (files) => Array.isArray(files) && files[0]?.type?.startsWith("image/")
     )
-    .test("avatarSize", "Avatar < 5MB", (files) =>
-      Array.isArray(files) && files[0]?.size / 1024 / 1024 <= 5
+    .test(
+      "avatarSize",
+      "Avatar < 5MB",
+      (files) => Array.isArray(files) && files[0]?.size / 1024 / 1024 <= 5
     ),
   images: yup
     .array()
     .min(1, "Phải chọn ít nhất 1 ảnh")
     .max(5, "Chỉ được chọn tối đa 5 ảnh")
     .test("fileTypeAll", "Chỉ chọn file ảnh", (files) =>
-      Array.isArray(files) ? files.every((f) => f?.type?.startsWith("image/")) : false
+      Array.isArray(files)
+        ? files.every((f) => f?.type?.startsWith("image/"))
+        : false
     )
     .test("fileSizeAll", "Mỗi ảnh phải nhỏ hơn 5MB", (files) =>
-      Array.isArray(files) ? files.every((f) => f?.size / 1024 / 1024 <= 5) : false
+      Array.isArray(files)
+        ? files.every((f) => f?.size / 1024 / 1024 <= 5)
+        : false
     ),
 }) as yup.ObjectSchema<ProductFormValues>;
-
 
 const ProductCreate: React.FC = () => {
   const navigate = useNavigate();
@@ -105,7 +115,7 @@ const ProductCreate: React.FC = () => {
       name: "",
       short_description: "",
       description: "",
-      status: "available",
+      status: "Active",
       price: "",
       unit_of_measure: "",
       category_id: "",
@@ -126,15 +136,23 @@ const ProductCreate: React.FC = () => {
     formData.set("unit_of_measure", values.unit_of_measure);
     formData.set("category_id", String(values.category_id));
     values.avatar?.[0] &&
-      formData.append("avatar", values.avatar[0], values.avatar[0].name || "avatar.jpg");
+      formData.append(
+        "avatar",
+        values.avatar[0],
+        values.avatar[0].name || "avatar.jpg"
+      );
     values.images?.forEach((file, idx) =>
       formData.append("images", file, file.name || `image_${idx}.jpg`)
     );
 
     try {
-      await postApi(`${process.env.REACT_APP_API_URL}/api/products/create`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await postApi(
+        `${process.env.REACT_APP_API_URL}/api/products/create`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
       await queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Tạo sản phẩm thành công 🎉");
       reset();
@@ -188,15 +206,19 @@ const ProductCreate: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Trạng thái
+              </label>
               <Controller
                 name="status"
                 control={control}
                 render={({ field }) => (
                   <DropdownSelect
                     data={[
-                      { id: "available", name: "Còn hàng" },
-                      { id: "out_of_stock", name: "Hết hàng" },
+                      { id: "Active", name: "Còn hàng" },
+                      { id: "Inactive", name: "Ngừng kinh doanh" },
+                      { id: "OutOfStock", name: "Hết hàng" },
+                      { id: "Discontinued", name: "Ngừng sản xuất" },
                     ]}
                     value={field.value || null}
                     valueKey="id"
@@ -206,11 +228,17 @@ const ProductCreate: React.FC = () => {
                   />
                 )}
               />
-              {errors.status && <p className="text-red-600 text-sm mt-1">{errors.status.message}</p>}
+              {errors.status && (
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.status.message}
+                </p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Danh mục
+              </label>
               <Controller
                 name="category_id"
                 control={control}
@@ -232,7 +260,9 @@ const ProductCreate: React.FC = () => {
               />
 
               {errors.category_id && (
-                <p className="mt-1 h-5 text-sm text-red-600">{errors.category_id.message}</p>
+                <p className="mt-1 h-5 text-sm text-red-600">
+                  {errors.category_id.message}
+                </p>
               )}
             </div>
           </div>
@@ -247,22 +277,31 @@ const ProductCreate: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả chi tiết</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mô tả chi tiết
+            </label>
             <textarea
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${errors.description ? "border-red-300 focus:ring-red-500" : "border-gray-300"
-                }`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                errors.description
+                  ? "border-red-300 focus:ring-red-500"
+                  : "border-gray-300"
+              }`}
               rows={4}
               placeholder="Mô tả sản phẩm..."
               {...register("description")}
             />
             {errors.description && (
-              <p className="mt-1 h-5 text-sm text-red-600">{errors.description.message}</p>
+              <p className="mt-1 h-5 text-sm text-red-600">
+                {errors.description.message}
+              </p>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Avatar</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Avatar
+              </label>
               <Controller
                 name="avatar"
                 control={control}
@@ -278,12 +317,16 @@ const ProductCreate: React.FC = () => {
                 )}
               />
               {errors.avatar && (
-                <p className="text-red-600 text-sm mt-1">{errors.avatar.message as string}</p>
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.avatar.message as string}
+                </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh sản phẩm</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ảnh sản phẩm
+              </label>
               <Controller
                 name="images"
                 control={control}
@@ -299,7 +342,9 @@ const ProductCreate: React.FC = () => {
                 )}
               />
               {errors.images && (
-                <p className="text-red-600 text-sm mt-1">{errors.images.message as string}</p>
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.images.message as string}
+                </p>
               )}
             </div>
           </div>
@@ -308,7 +353,11 @@ const ProductCreate: React.FC = () => {
             <Button type="submit" isLoading={isSubmitting}>
               Tạo sản phẩm
             </Button>
-            <Button type="button" variant="secondary" onClick={() => window.history.back()}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => window.history.back()}
+            >
               Hủy
             </Button>
           </div>

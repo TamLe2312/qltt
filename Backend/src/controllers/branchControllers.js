@@ -71,9 +71,9 @@ const getAllBranches = async (req, res) => {
 
 const getAllProductsByBranch = async (req, res) => {
   let t;
-  try {
-    const { branch_id } = req.query;
+  const { id } = req.params;
 
+  try {
     const { limit, page, sortBy, sortOrder } = req.query;
 
     const pageNum = parseInt(page) || 1;
@@ -93,12 +93,12 @@ const getAllProductsByBranch = async (req, res) => {
     const sortColumn = sortMap[sortKey];
     const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
 
-    const db = getDbByBranchId(branch_id);
+    const db = getDbByBranchId(id);
     t = await db.transaction();
 
     const result = await db.query(
       `
-      SELECT 
+      SELECT
         p.id,
         p.name AS product_name,
         p.price,
@@ -114,7 +114,7 @@ const getAllProductsByBranch = async (req, res) => {
         FETCH NEXT ? ROWS ONLY
       `,
       {
-        replacements: [branch_id, offsetNum, limitNum],
+        replacements: [id, offsetNum, limitNum],
         type: QueryTypes.SELECT,
         transaction: t,
       }
@@ -123,7 +123,7 @@ const getAllProductsByBranch = async (req, res) => {
     const totalResult = await db.query(
       `SELECT COUNT(*) AS total FROM inventories WHERE branch_id = ?`,
       {
-        replacements: [branch_id],
+        replacements: [id],
         type: QueryTypes.SELECT,
         transaction: t,
       }

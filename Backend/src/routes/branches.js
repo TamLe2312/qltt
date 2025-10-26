@@ -4,7 +4,7 @@ const { upload } = require("../middlewares/multerConfig.js");
 const Router = express.Router();
 
 Router.get("/", branchController.getAllBranches);
-Router.get("/products", branchController.getAllProductsByBranch);
+Router.get("/:id/products", branchController.getAllProductsByBranch);
 Router.put("/update/:id", upload.none(), branchController.updateBranch);
 
 module.exports = { branchesApi: Router };

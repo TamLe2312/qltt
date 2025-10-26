@@ -1,216 +1,305 @@
-const { pool } = require("../config/db.js");
-const handlePgError = require("../middlewares/handlePgError.js");
+const { QueryTypes } = require("sequelize");
+const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 const bcrypt = require("bcrypt");
 
-// const getAllUsers = async (req, res) => {
-//   try {
-//     const { limit, page, sortBy, sortOrder } = req.query;
-//     const offset = page && limit ? (page - 1) * limit : 0;
-//     const results = await pool.query(
-//       `SELECT u.id, u.full_name, u.username, u.email, u.phone, u.status, r.id AS role_id, r.name AS role_name
-//       FROM users u
-//       JOIN user_roles ur ON u.id = ur.user_id
-//       JOIN roles r ON ur.role_id = r.id
-//       ORDER BY ${sortBy || "u.id"} ${sortOrder === "desc" ? "DESC" : "ASC"}
-//       LIMIT $1 OFFSET $2`,
-//       [limit || 20, offset]
-//     );
-//     const countResult = await pool.query("SELECT COUNT(*) FROM users;");
-//     res.json({ data: results.rows, total: countResult.rows[0].count });
-//   } catch (err) {
-//     handlePgError(err, res);
-//   }
-// };
-
 const getAllUsers = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
-    let { limit = 20, page = 1, sortField = 'u.id', sortOrder = 'desc' } = req.query;
-    limit = parseInt(limit, 10);
-    page = parseInt(page, 10);
-    const offset = (page - 1) * limit;
+    const { limit, page, sortBy, sortOrder } = req.query;
 
-    // Danh sách cột cho phép sắp xếp để tránh SQL injection
-    const allowedSortFields = ['u.id', 'u.full_name', 'u.username', 'u.email', 'u.phone', 'u.status', 'r.name'];
-    if (!allowedSortFields.includes(sortField)) sortField = 'u.id';
-    sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
 
-    // Truy vấn danh sách người dùng với phân trang và sắp xếp
-    const results = await pool.query(
+    const sortMap = {
+      id: "u.id",
+      full_name: "u.full_name",
+      username: "u.username",
+      email: "u.email",
+      phone: "u.phone",
+      status: "u.status",
+      role_name: "r.name",
+      created_at: "u.created_at",
+    };
+
+    const allowedSortColumns = Object.keys(sortMap);
+    const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "created_at";
+    const sortColumn = sortMap[sortKey];
+    const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
+
+    const results = await dbHeadOffice.query(
       `SELECT u.id, u.full_name, u.username, u.email, u.phone, u.status,
               r.id AS role_id, r.name AS role_name
        FROM users u
        JOIN user_roles ur ON u.id = ur.user_id
        JOIN roles r ON ur.role_id = r.id
        WHERE u.deleted_at IS NULL
-       ORDER BY ${sortField} ${sortOrder}
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
+       ORDER BY ${sortColumn} ${sortDir}
+       OFFSET ? ROWS
+       FETCH NEXT ? ROWS ONLY`,
+      {
+        replacements: [offsetNum, limitNum],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    // Truy vấn tổng số bản ghi
-    const countResult = await pool.query(`SELECT COUNT(*) AS total FROM users`);
-    const total = parseInt(countResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
+    const countResult = await dbHeadOffice.query(
+      `SELECT COUNT(*) AS total FROM users WHERE deleted_at IS NULL`,
+      {
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
 
-    // Trả dữ liệu theo định dạng chuẩn
+    const total = parseInt(countResult[0].total, 10);
+    const totalPages = Math.ceil(total / limitNum);
+
+    await t.commit();
     res.json({
       data: {
-        items: results.rows,
+        items: results,
         pagination: {
           total,
-          page,
-          perPage: limit,
+          pageNum,
+          perPage: limitNum,
           totalPages,
         },
         sort: {
-          field: sortField,
-          order: sortOrder,
+          field: sortColumn,
+          order: sortDir,
         },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
-
 const getUserById = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { id } = req.params;
-    const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
-    if (result.rowCount === 0) {
+    const result = await dbHeadOffice.query(
+      "SELECT * FROM users WHERE id = ?",
+      {
+        replacements: [id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
+    if (result.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
-    res.json(result.rows[0]);
+    await t.commit();
+    res.json(result[0]);
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const getRoles = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
-    const result = await pool.query("SELECT id, name FROM roles ORDER BY id");
-    res.json(result.rows);
+    const result = await dbHeadOffice.query(
+      "SELECT id, name FROM roles ORDER BY id",
+      {
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
+    await t.commit();
+    res.json(result);
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const createUser = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { full_name, status, username, email, phone, password, role_id } =
       req.body;
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await pool.query(
+
+    const insertUserResult = await dbHeadOffice.query(
       `INSERT INTO users (full_name, status, username, email, phone, password)
-            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [full_name, status, username, email, phone, hashedPassword]
+       OUTPUT INSERTED.id
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      {
+        replacements: [
+          full_name,
+          status,
+          username,
+          email,
+          phone,
+          hashedPassword,
+        ],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
 
-    if (result.rowCount === 0) {
-      return res.status(400).json({ message: "User creation failed" });
+    if (!insertUserResult || insertUserResult.length === 0) {
+      throw new Error("User creation failed, no ID returned.");
     }
+    const newUserId = insertUserResult[0].id;
 
-    await pool.query(
+    await dbHeadOffice.query(
       `INSERT INTO user_roles (user_id, role_id)
-       VALUES ($1, $2)`,
-      [result.rows[0].id, role_id]
+       VALUES (?, ?)`,
+      {
+        replacements: [newUserId, role_id],
+        type: QueryTypes.INSERT,
+        transaction: t,
+      }
     );
+
+    await t.commit();
 
     res.status(201).json({ message: "User created" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const updateUser = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { id } = req.params;
     const { full_name, status, username, email, phone, password } = req.body;
-    await pool.query("BEGIN");
-    const currentUserResult = await pool.query(
-      "SELECT * FROM users WHERE id = $1",
-      [id]
+
+    const currentUserResult = await dbHeadOffice.query(
+      "SELECT * FROM users WHERE id = ?",
+      { replacements: [id], type: QueryTypes.SELECT, transaction: t }
     );
-    if (currentUserResult.rowCount === 0) {
-      await pool.query("ROLLBACK");
+
+    if (currentUserResult.length === 0) {
+      await t.rollback();
       return res.status(404).json({ message: "User not found" });
     }
-    const currentUser = currentUserResult.rows[0];
-    const newEmail = req.body.email;
-    if (newEmail && newEmail !== currentUser.email) {
-      const emailExistsResult = await pool.query(
-        "SELECT id FROM users WHERE email = $1 AND id <> $2",
-        [newEmail, id]
+
+    const currentUser = currentUserResult[0];
+
+    if (email && email !== currentUser.email) {
+      const emailExistsResult = await dbHeadOffice.query(
+        "SELECT id FROM users WHERE email = ? AND id != ?",
+        {
+          replacements: [email, id],
+          type: QueryTypes.SELECT,
+          transaction: t,
+        }
       );
-      if (emailExistsResult.rowCount > 0) {
-        await pool.query("ROLLBACK");
+      if (emailExistsResult.length > 0) {
+        await t.rollback();
         return res
           .status(409)
-          .json({ message: `Email "${newEmail}" already exists.` });
+          .json({ message: `Email "${email}" already exists.` });
       }
     }
 
-    const newUsername = req.body.username;
-    if (newUsername && newUsername !== currentUser.username) {
-      const usernameExistsResult = await pool.query(
-        "SELECT id FROM users WHERE username = $1 AND id <> $2",
-        [newUsername, id]
+    if (username && username !== currentUser.username) {
+      const usernameExistsResult = await dbHeadOffice.query(
+        "SELECT id FROM users WHERE username = ? AND id != ?",
+        {
+          replacements: [username, id],
+          type: QueryTypes.SELECT,
+          transaction: t,
+        }
       );
-      if (usernameExistsResult.rowCount > 0) {
-        await pool.query("ROLLBACK");
+      if (usernameExistsResult.length > 0) {
+        await t.rollback();
         return res
           .status(409)
-          .json({ message: `Username "${newUsername}" already exists.` });
+          .json({ message: `Username "${username}" already exists.` });
       }
     }
+
     const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
-    const result = await pool.query(
+
+    await dbHeadOffice.query(
       `UPDATE users 
-       SET full_name = $1, status = $2, username = $3, email = $4, phone = $5, password = COALESCE($6, password)
-         WHERE id = $7 RETURNING *`,
-      [full_name, status, username, email, phone, hashedPassword, id]
+       SET 
+        full_name = ?, 
+        status = ?, 
+        username = ?, 
+        email = ?, 
+        phone = ?, 
+        password = COALESCE(?, password),
+        updated_at = SYSDATETIME()
+       OUTPUT INSERTED.*
+       WHERE id = ?`,
+      {
+        replacements: [
+          full_name,
+          status,
+          username,
+          email,
+          phone,
+          hashedPassword,
+          id,
+        ],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
-    await pool.query("COMMIT");
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
+
+    await t.commit();
 
     res.json({ message: "User updated" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
 const deleteUser = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { id } = req.params;
 
-    // Bước 1: Kiểm tra xem user có tồn tại không
-    const check = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
-    console.log("User found:", check.rows); // để debug
-    if (check.rowCount === 0) {
-      return res.status(404).json({ message: "User not found" });
+    const [result, metadata] = await dbHeadOffice.query(
+      "DELETE FROM users WHERE id = ? AND deleted_at IS NULL",
+      {
+        replacements: [id],
+        transaction: t,
+      }
+    );
+
+    if (metadata.affectedCount === 0) {
+      await t.rollback();
+      return res
+        .status(404)
+        .json({ message: "User not found or already deleted" });
     }
 
-    // Bước 2: Thực hiện DELETE (trigger soft delete sẽ chạy)
-    const result = await pool.query("DELETE FROM users WHERE id = $1", [id]);
-    console.log("Delete rowCount:", result.rowCount);
+    await t.commit();
 
     res.json({ status: "success", message: "User deleted successfully" });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 
-
 const userDetails = async (req, res) => {
+  const t = await dbHeadOffice.transaction();
   try {
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await dbHeadOffice.query(
       `
       SELECT u.id, u.full_name, u.username, u.email, u.phone, u.status, u.password,
       r.id AS role_id, r.name AS role_name,
@@ -219,15 +308,22 @@ const userDetails = async (req, res) => {
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id
       JOIN customer_address ca ON u.id = ca.user_id
-      WHERE u.id = $1`,
-      [id]
+      WHERE u.id = ?`,
+      {
+        replacements: [id],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
     );
-    if (result.rowCount === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
-    res.json({ data: result.rows[0] });
+    await t.commit();
+    res.json({ data: result[0] });
   } catch (err) {
-    handlePgError(err, res);
+    await t.rollback();
+    console.error(err);
+    return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
 

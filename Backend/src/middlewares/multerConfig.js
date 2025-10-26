@@ -6,7 +6,7 @@ const upload = multer();
 
 const storageImage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadPath = path.join(__dirname, "..", "public", "images");
+    const uploadPath = path.join(__dirname, "..", "..", "public", "images");
     fs.mkdir(uploadPath, { recursive: true }).then(() => {
       cb(null, uploadPath);
     });
@@ -40,7 +40,8 @@ const deleteImage = async (fileName) => {
   try {
     const filePath = path.join(
       __dirname,
-      "../..",
+      "..",
+      "..",
       "public",
       "images",
       fileName
