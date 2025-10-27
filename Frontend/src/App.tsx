@@ -3,6 +3,8 @@ import { Toaster } from 'react-hot-toast';
 import AdminLayout from './components/layout/admin/AdminLayout';
 import UserLayout from './components/layout/user/UserLayout';
 import Home from './pages/user/Home';
+import Login from './pages/user/Login';
+import Register from './pages/user/Register';
 import ProductCreate from './pages/admin/Products/ProductCreate';
 import OrderCreate from './pages/admin/Orders/OrderCreate';
 import NotFound from './pages/error/NotFound';
@@ -54,13 +56,10 @@ function App() {
 
         <Route path="/" element={<UserLayout />}>
           <Route index element={<Home />} />
+          <Route path="login" element={<Login />} />
+          <Route path="register" element={<Register />} />
         </Route>
 
-        <Route path="*" element={<NotFound />} />
-
-        <Route path="/" element={<UserLayout />} >
-          <Route index element={<Home />} />
-        </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
 

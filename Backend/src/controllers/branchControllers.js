@@ -3,7 +3,7 @@ const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllBranches = async (req, res) => {
   try {
-    const { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
+    let { page = 1, page_size: limit = 20, sort_field: sortField = 'created_at', sort_order: sortOrder = 'desc' } = req.query;
     const offset = (page - 1) * limit;
 
     const result = await pool.query(

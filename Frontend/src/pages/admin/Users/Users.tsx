@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getApi, deleteApi, postApi } from '../../../utils';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import Button from '../../../components/ui/form/Button';
-import Card from 'antd/es/card/Card';
-import Table from '../../../components/ui/data-display/Table';
+import TableServerPagination from '../../../components/ui/data-display/TableServerPagination';
 import { User } from '../../../types';
 import Modal from '../../../components/ui/data-display/Modal';
 import Input from '../../../components/ui/form/Input';
@@ -27,17 +26,78 @@ const UserFormSchema = Yup.object({
 const Users: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const DEFAULTS = {
+        page: 1,
+        pageSize: 20,
+        sortKey: 'created_at',
+        sortOrder: 'desc' as 'asc' | 'desc',
+    };
+
+    // ---- state hiển thị / filter
+    const [page, setPage] = useState(DEFAULTS.page);
+    const [pageSize, setPageSize] = useState(DEFAULTS.pageSize);
+    const [sortKey, setSortKey] = useState(DEFAULTS.sortKey);
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(DEFAULTS.sortOrder);
+
+    // ---- đồng bộ 2 chiều: URL ↔ state
+    useEffect(() => {
+        const urlParams = {
+            page: parseInt(searchParams.get('page') || String(DEFAULTS.page), 10),
+            pageSize: parseInt(searchParams.get('page_size') || String(DEFAULTS.pageSize), 10),
+            sortKey: searchParams.get('sort_field') || DEFAULTS.sortKey,
+            sortOrder: (searchParams.get('sort_order') as 'asc' | 'desc') || DEFAULTS.sortOrder,
+        };
+
+        const stateParams = { page, pageSize, sortKey, sortOrder };
+
+        const isUrlDifferent = Object.keys(urlParams).some(
+            (key) => (urlParams as any)[key] !== (stateParams as any)[key]
+        );
+
+        if (isUrlDifferent) {
+            setPage(urlParams.page);
+            setPageSize(urlParams.pageSize);
+            setSortKey(urlParams.sortKey);
+            setSortOrder(urlParams.sortOrder);
+            return;
+        }
+
+        if (searchParams.toString() === '') {
+            setSearchParams(
+                {
+                    page: String(page),
+                    page_size: String(pageSize),
+                    sort_field: sortKey,
+                    sort_order: sortOrder,
+                },
+                { replace: true }
+            );
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, page, pageSize, sortKey, sortOrder]);
 
     // Function GET Users
-    const getUsers = () => getApi(`${process.env.REACT_APP_API_URL}/api/users`);
+    const getUsers = () => {
+        const params = {
+            page,
+            page_size: pageSize,
+            sort_field: sortKey,
+            sort_order: sortOrder,
+        };
+        return getApi(`${process.env.REACT_APP_API_URL}/api/users`, params);
+    };
 
     // Lấy dữ liệu từ ClientQuery
     const { data: apiResponse, isLoading } = useQuery({
-        queryKey: ['users'],
+        queryKey: ['users', { page, pageSize, sortKey, sortOrder }],
         queryFn: getUsers,
     });
 
-    const users = apiResponse?.data.items ?? [];
+    const users = apiResponse?.data?.items ?? [];
+    const pagination = apiResponse?.data?.pagination;
+    const total = pagination?.total ?? 0;
 
     const getStatusColor = (status: User['status']) => {
         switch (status) {
@@ -79,10 +139,53 @@ const Users: React.FC = () => {
         });
     };
 
+    const handlePageChange = (newPage: number) => {
+        setPage(newPage);
+        setSearchParams(
+            {
+                page: String(newPage),
+                page_size: String(pageSize),
+                sort_field: sortKey,
+                sort_order: sortOrder,
+            },
+            { replace: true }
+        );
+    };
+
+    const handlePageSizeChange = (newSize: number) => {
+        setPageSize(newSize);
+        setPage(1);
+        setSearchParams(
+            {
+                page: '1',
+                page_size: String(newSize),
+                sort_field: sortKey,
+                sort_order: sortOrder,
+            },
+            { replace: true }
+        );
+    };
+
+    const handleSortChange = (key: string, order: 'asc' | 'desc') => {
+        setSortKey(key);
+        setSortOrder(order);
+        setPage(1);
+        setSearchParams(
+            {
+                page: '1',
+                page_size: String(pageSize),
+                sort_field: key,
+                sort_order: order,
+            },
+            { replace: true }
+        );
+    };
+
     const columns = [
         {
             key: 'id',
             title: 'ID',
+            sortable: true,
             render: (value: string) => (
                 <span className="font-mono text-sm text-primary-600">#{value}</span>
             ),
@@ -90,20 +193,22 @@ const Users: React.FC = () => {
         {
             key: 'full_name',
             title: 'Tên',
+            sortable: true,
             render: (value: string, item: any) => (
                 <div>
                     <p className="font-medium text-blue-600">{value}</p>
-                    <p className="font-medium text-gray-600">{item.username}</p>
+                    <p className="text-sm text-gray-600">{item.username}</p>
                 </div>
             ),
         },
         {
             key: 'email',
             title: 'Thông tin',
+            sortable: true,
             render: (value: any, item: any) => (
                 <div>
-                    <p className="font-medium text-blue-600">{value}</p>
-                    <p className="font-medium text-gray-600">{item.phone}</p>
+                    <p className="text-sm text-blue-600">{value}</p>
+                    <p className="text-sm text-gray-600">{item.phone}</p>
                 </div>
             ),
         },
@@ -112,13 +217,14 @@ const Users: React.FC = () => {
             title: 'Vai trò',
             render: (value: any) => (
                 <div>
-                    <p className="font-medium text-gray-600">{value === "4" ? "Admin" : value === "5" ? "Nhân viên" : "Khách hàng"}</p>
+                    <p className="text-sm text-gray-600">{value === "4" ? "Admin" : value === "5" ? "Nhân viên" : "Khách hàng"}</p>
                 </div>
             ),
         },
         {
             key: 'status',
             title: 'Trạng thái',
+            sortable: true,
             render: (value: any) => (
                 <div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(value)}`}>
@@ -132,7 +238,6 @@ const Users: React.FC = () => {
             title: 'Hành động',
             render: (value: any, item: any) => (
                 <div className="flex items-center space-x-2">
-                    {/* <Button size="sm" variant="outline">Xem</Button> */}
                     <Button
                         size="sm"
                         variant="outline"
@@ -238,14 +343,21 @@ const Users: React.FC = () => {
             </div>
 
             {/* Users Table */}
-            <Card>
-                <Table
-                    data={users || []}
-                    columns={columns}
-                    loading={isLoading}
-                    emptyMessage="Không có người dùng nào"
-                />
-            </Card>
+            <TableServerPagination
+                data={users}
+                columns={columns}
+                loading={isLoading}
+                emptyMessage="Không tìm thấy người dùng nào"
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSortChange={handleSortChange}
+                preserveDataWhileLoading={true}
+            />
 
             {/* Modal */}
             <Modal

@@ -1,15 +1,15 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getApi, postApi, deleteApi } from "../../../utils";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import Button from "../../../components/ui/form/Button";
-import Card from "antd/es/card/Card";
-import Table from "../../../components/ui/data-display/Table";
+import TableServerPagination from "../../../components/ui/data-display/TableServerPagination";
 import Modal from "../../../components/ui/data-display/Modal";
 import Input from "../../../components/ui/form/Input";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import * as Yup from "yup";
+import SearchInput from "../../../components/ui/search/SearchInput";
 
 // === Schema validate form ===
 const SupplierFormSchema = Yup.object({
@@ -29,6 +29,28 @@ const SupplierFormSchema = Yup.object({
 const Suppliers: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // ========================
+    // CONSTANTS & DEFAULT VALUES
+    // ========================
+    const DEFAULTS = {
+        page: 1,
+        pageSize: 20,
+        sortKey: 'created_at',
+        sortOrder: 'desc' as 'asc' | 'desc',
+        search: '',
+    };
+
+    // ========================
+    // STATE MANAGEMENT
+    // ========================
+    const [page, setPage] = useState(DEFAULTS.page);
+    const [pageSize, setPageSize] = useState(DEFAULTS.pageSize);
+    const [sortKey, setSortKey] = useState(DEFAULTS.sortKey);
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(DEFAULTS.sortOrder);
+    const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
@@ -44,12 +66,74 @@ const Suppliers: React.FC = () => {
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const getSuppliers = () => getApi(`${process.env.REACT_APP_API_URL}/api/suppliers`);
+    // ========================
+    // ĐỒNG BỘ URL ↔ STATE (2 CHIỀU)
+    // ========================
+    useEffect(() => {
+        const urlParams = {
+            page: parseInt(searchParams.get('page') || String(DEFAULTS.page), 10),
+            pageSize: parseInt(searchParams.get('page_size') || String(DEFAULTS.pageSize), 10),
+            sortKey: searchParams.get('sort_field') || DEFAULTS.sortKey,
+            sortOrder: (searchParams.get('sort_order') as 'asc' | 'desc') || DEFAULTS.sortOrder,
+            search: searchParams.get('search') || DEFAULTS.search,
+        };
+
+        const stateParams = { page, pageSize, sortKey, sortOrder, search: searchQuery };
+
+        const isUrlDifferent = Object.keys(urlParams).some(
+            (key) => (urlParams as any)[key] !== (stateParams as any)[key]
+        );
+
+        if (isUrlDifferent) {
+            setPage(urlParams.page);
+            setPageSize(urlParams.pageSize);
+            setSortKey(urlParams.sortKey);
+            setSortOrder(urlParams.sortOrder);
+            setSearchQuery(urlParams.search);
+            return;
+        }
+
+        if (searchParams.toString() === '') {
+            setSearchParams(
+                {
+                    page: String(page),
+                    page_size: String(pageSize),
+                    sort_field: sortKey,
+                    sort_order: sortOrder,
+                },
+                { replace: true }
+            );
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, page, pageSize, sortKey, sortOrder, searchQuery]);
+
+    // ========================
+    // API FUNCTIONS
+    // ========================
+    const getSuppliers = () => {
+        const params: any = {
+            page,
+            page_size: pageSize,
+            sort_field: sortKey,
+            sort_order: sortOrder,
+        };
+        if (searchQuery) {
+            params.search = searchQuery;
+        }
+        return getApi(`${process.env.REACT_APP_API_URL}/api/suppliers`, params);
+    };
+
+    // ========================
+    // REACT QUERY - FETCH DATA
+    // ========================
     const { data: apiResponse, isLoading } = useQuery({
-        queryKey: ["suppliers"],
+        queryKey: ["suppliers", { page, pageSize, sortKey, sortOrder, searchQuery }],
         queryFn: getSuppliers,
     });
-    const suppliers = apiResponse?.data.items ?? [];
+
+    const suppliers = apiResponse?.data?.items ?? [];
+    const pagination = apiResponse?.data?.pagination;
+    const total = pagination?.total ?? 0;
 
     const createSupplierMutation = useMutation({
         mutationFn: (data: any) => postApi(`${process.env.REACT_APP_API_URL}/api/suppliers/create`, data),
@@ -132,24 +216,101 @@ const Suppliers: React.FC = () => {
         });
     };
 
+    const handlePageChange = (newPage: number) => {
+        setPage(newPage);
+        setSearchParams(
+            {
+                page: String(newPage),
+                page_size: String(pageSize),
+                sort_field: sortKey,
+                sort_order: sortOrder,
+            },
+            { replace: true }
+        );
+    };
+
+    const handlePageSizeChange = (newSize: number) => {
+        setPageSize(newSize);
+        setPage(1);
+        setSearchParams(
+            {
+                page: '1',
+                page_size: String(newSize),
+                sort_field: sortKey,
+                sort_order: sortOrder,
+            },
+            { replace: true }
+        );
+    };
+
+    const handleSortChange = (key: string, order: 'asc' | 'desc') => {
+        setSortKey(key);
+        setSortOrder(order);
+        setPage(1);
+        setSearchParams(
+            {
+                page: '1',
+                page_size: String(pageSize),
+                sort_field: key,
+                sort_order: order,
+            },
+            { replace: true }
+        );
+    };
+
+    // ========================
+    // SEARCH HANDLERS
+    // ========================
+    const [query, setQuery] = useState("");
+
+    const handleSearch = () => {
+        if (!searchQuery.trim()) {
+            toast.error('Vui lòng nhập từ khóa tìm kiếm');
+            return;
+        }
+
+        setIsSearchLoading(true);
+        setPage(1);
+
+        const newParams: any = {
+            page: '1',
+            page_size: String(pageSize),
+            sort_field: sortKey,
+            sort_order: sortOrder,
+        };
+
+        if (searchQuery) {
+            newParams.search = searchQuery;
+        }
+
+        setSearchParams(newParams, { replace: true });
+
+        setTimeout(() => {
+            setIsSearchLoading(false);
+            toast.success(`Đang tìm kiếm: "${searchQuery}"`);
+        }, 500);
+    };
+
     const columns = [
         {
             key: "id",
             title: "ID",
+            sortable: true,
             render: (value: string, item: any) => <span className="font-mono text-sm text-primary-600">#{item.id}</span>,
         },
         {
             key: "name",
             title: "Tên",
-            render: (value: string, item: any) => <p className="font-medium text-gray-600">{item.name}</p>,
+            sortable: true,
+            render: (value: string, item: any) => <p className="font-medium text-gray-900">{item.name}</p>,
         },
         {
             key: "address",
             title: "Địa chỉ",
             render: (value: any, item: any) => (
                 <div>
-                    <p>{item.street}, {item.ward}</p>
-                    <p>{item.district}, {item.city}, {item.zipcode}</p>
+                    <p className="text-sm text-gray-600">{item.street}, {item.ward}</p>
+                    <p className="text-sm text-gray-600">{item.district}, {item.city}, {item.zipcode}</p>
                 </div>
             ),
         },
@@ -158,9 +319,19 @@ const Suppliers: React.FC = () => {
             title: "Liên hệ",
             render: (value: any, item: any) => (
                 <div>
-                    <p>{item.phone}</p>
-                    <p>{item.email}</p>
+                    <p className="text-sm text-gray-600">{item.phone}</p>
+                    <p className="text-sm text-gray-600">{item.email}</p>
                 </div>
+            ),
+        },
+        {
+            key: "created_at",
+            title: "Ngày tạo",
+            sortable: true,
+            render: (value: string) => (
+                <span className="text-sm text-gray-600">
+                    {value ? new Date(value).toLocaleDateString('vi-VN') : '-'}
+                </span>
             ),
         },
         {
@@ -178,25 +349,46 @@ const Suppliers: React.FC = () => {
         },
     ];
 
+
+    // ========================
+    // RENDER COMPONENT
+    // ========================
     return (
         <div className="space-y-6">
+            {/* ================== HEADER SECTION ================== */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Nhà cung cấp</h1>
-                    <p className="text-gray-600">Quản lý chi nhánh của bạn</p>
+                    <p className="text-gray-600">Quản lý các nhà cung cấp của bạn</p>
                 </div>
                 <Button onClick={() => setIsModalOpen(true)}>Tạo mới</Button>
             </div>
 
-            <Card>
-                <Table
-                    data={suppliers || []}
-                    columns={columns}
-                    loading={isLoading}
-                    emptyMessage="Không có chi nhánh nào"
-                />
-            </Card>
+            {/* ================== SEARCH SECTION ================== */}
+            <SearchInput
+                searchQuery={query}
+                setSearchQuery={setQuery}
+                handleSearch={handleSearch}
+            />
 
+            {/* ================== TABLE SECTION ================== */}
+            <TableServerPagination
+                data={suppliers}
+                columns={columns}
+                loading={isLoading}
+                emptyMessage="Không tìm thấy nhà cung cấp nào"
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSortChange={handleSortChange}
+                preserveDataWhileLoading={true}
+            />
+
+            {/* ================== MODAL SECTION ================== */}
             {/* Modal thêm nhà cung cấp */}
             <Modal
                 isOpen={isModalOpen}

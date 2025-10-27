@@ -3,10 +3,12 @@ const handlePgError = require("../middlewares/handlePgError.js");
 
 const getAllSuppliers = async (req, res) => {
   try {
-    let { limit = 20, page = 1, sortField = 'created_at', sortOrder = 'desc' } = req.query;
+    let { page = 1, page_size: limit = 20, sort_field: sortField = 'created_at', sort_order: sortOrder = 'desc' } = req.query;
     limit = parseInt(limit, 10);
     page = parseInt(page, 10);
     const offset = (page - 1) * limit;
+
+    // console.log("Query params:", req.query);
 
     // Danh sách cột cho phép sắp xếp để tránh SQL injection
     const allowedSortFields = ['id', 'name', 'created_at'];
