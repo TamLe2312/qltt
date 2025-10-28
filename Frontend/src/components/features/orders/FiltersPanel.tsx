@@ -18,7 +18,6 @@ interface FiltersPanelProps {
 }
 
 export default function FiltersPanel({ onChange }: FiltersPanelProps) {
-    // ✅ Trạng thái mặc định
     const defaultState = {
         filters: {},
         groupBy: 'month' as GroupBy,
@@ -46,7 +45,20 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
     const users = usersResponse?.data.items ?? [];
 
     const handleChange = (key: keyof OrderFilters, value: any) => {
-        const newFilters = { ...filters, [key]: value };
+        const newFilters = { ...filters };
+
+        // ✅ Nếu giá trị rỗng thì xoá key để reset đúng filter
+        if (
+            value === undefined ||
+            value === null ||
+            (Array.isArray(value) && value.length === 0) ||
+            value === ''
+        ) {
+            delete newFilters[key];
+        } else {
+            newFilters[key] = value;
+        }
+
         setFilters(newFilters);
 
         if (key === 'groupBy') {
@@ -57,12 +69,13 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
         }
     };
 
+
     const handleBlur = (field: 'minTotal' | 'maxTotal') => {
-        const min = tempTotals.minTotal ?? filters.minTotal;
-        const max = tempTotals.maxTotal ?? filters.maxTotal;
+        const min = tempTotals.minTotal ?? filters.minTotal ?? null;
+        const max = tempTotals.maxTotal ?? filters.maxTotal ?? null;
         const newErrors: typeof errors = {};
 
-        if (min !== undefined && max !== undefined && min !== null && max !== null && min > max) {
+        if (min !== null && max !== null && min > max) {
             newErrors.minTotal = 'Min Total không được lớn hơn Max Total';
             newErrors.maxTotal = 'Max Total không được nhỏ hơn Min Total';
         }
@@ -75,7 +88,6 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
         }
     };
 
-    // ✅ Hàm reset toàn bộ bộ lọc về mặc định
     const handleReset = () => {
         setFilters(defaultState.filters);
         setGroupBy(defaultState.groupBy);
@@ -83,6 +95,29 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
         setErrors({});
         onChange(defaultState.filters, defaultState.groupBy);
     };
+
+    // ✅ Component wrapper có overlay spinner
+    const WithSpinner = ({ loading, children }: { loading: boolean; children: React.ReactNode }) => (
+        <div style={{ position: 'relative' }}>
+            {children}
+            {loading && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(255,255,255,0.6)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 4,
+                        zIndex: 10,
+                    }}
+                >
+                    <Spin />
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <div
@@ -104,18 +139,28 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
                             : undefined
                     }
                     onChange={(dates) => {
-                        handleChange('startDate', dates?.[0]?.format('YYYY-MM-DD'));
-                        handleChange('endDate', dates?.[1]?.format('YYYY-MM-DD'));
+                        const newFilters = { ...filters };
+
+                        if (!dates) {
+                            delete newFilters.startDate;
+                            delete newFilters.endDate;
+                        } else {
+                            newFilters.startDate = dates[0]?.format('YYYY-MM-DD');
+                            newFilters.endDate = dates[1]?.format('YYYY-MM-DD');
+                        }
+
+                        setFilters(newFilters);
+                        onChange(newFilters, groupBy);
                     }}
                 />
 
+
                 {/* 2️⃣ Branch */}
-                {branchesLoading ? (
-                    <Spin />
-                ) : (
+                <WithSpinner loading={branchesLoading}>
                     <Select
                         placeholder="Chọn chi nhánh"
                         allowClear
+                        disabled={branchesLoading}
                         value={filters.branchId}
                         onChange={(value) => handleChange('branchId', value)}
                         style={{ width: '100%' }}
@@ -126,22 +171,21 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
                             </Option>
                         ))}
                     </Select>
-                )}
-                {branchesError && (
-                    <p style={{ color: 'red', fontSize: 12 }}>Không thể tải danh sách chi nhánh</p>
-                )}
+                </WithSpinner>
+                {branchesError && <p style={{ color: 'red', fontSize: 12 }}>Không thể tải danh sách chi nhánh</p>}
 
                 {/* 3️⃣ Min Total */}
-                <Form.Item
-                    validateStatus={errors.minTotal ? 'error' : ''}
-                    help={errors.minTotal}
-                    style={{ marginBottom: 0 }}
-                >
+                <Form.Item validateStatus={errors.minTotal ? 'error' : ''} help={errors.minTotal} style={{ marginBottom: 0 }}>
                     <InputNumber
                         style={{ width: '100%' }}
                         placeholder="Min Total"
-                        value={tempTotals.minTotal ?? filters.minTotal}
-                        onChange={(value) => setTempTotals((prev) => ({ ...prev, minTotal: value }))}
+                        value={tempTotals.minTotal ?? filters.minTotal ?? null}
+                        onChange={(value) =>
+                            setTempTotals((prev) => ({
+                                ...prev,
+                                minTotal: value === null ? null : value,
+                            }))
+                        }
                         onBlur={() => handleBlur('minTotal')}
                     />
                 </Form.Item>
@@ -156,7 +200,6 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
                 >
                     <Option value="day">Theo ngày</Option>
                     <Option value="month">Theo tháng</Option>
-                    <Option value="quarter">Theo quý</Option>
                     <Option value="year">Theo năm</Option>
                 </Select>
             </div>
@@ -173,17 +216,22 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
                     style={{ width: '100%' }}
                 >
                     <Option value="pending">Pending</Option>
+                    <Option value="confirmed">Confirmed</Option>
+                    <Option value="processing">Processing</Option>
+                    <Option value="shipped">Shipped</Option>
+                    <Option value="delivered">Delivered</Option>
                     <Option value="completed">Completed</Option>
                     <Option value="canceled">Canceled</Option>
+                    <Option value="failed">Failed</Option>
+                    <Option value="refunded">Refunded</Option>
                 </Select>
 
                 {/* 6️⃣ User */}
-                {usersLoading ? (
-                    <Spin />
-                ) : (
+                <WithSpinner loading={usersLoading}>
                     <Select
                         placeholder="Chọn người dùng"
                         allowClear
+                        disabled={usersLoading}
                         value={filters.userId}
                         onChange={(value) => handleChange('userId', value)}
                         style={{ width: '100%' }}
@@ -196,34 +244,30 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
                             </Option>
                         ))}
                     </Select>
-                )}
-                {usersError && (
-                    <p style={{ color: 'red', fontSize: 12 }}>Không thể tải danh sách người dùng</p>
-                )}
+                </WithSpinner>
+                {usersError && <p style={{ color: 'red', fontSize: 12 }}>Không thể tải danh sách người dùng</p>}
 
                 {/* 7️⃣ Max Total */}
-                <Form.Item
-                    validateStatus={errors.maxTotal ? 'error' : ''}
-                    help={errors.maxTotal}
-                    style={{ marginBottom: 0 }}
-                >
+                <Form.Item validateStatus={errors.maxTotal ? 'error' : ''} help={errors.maxTotal} style={{ marginBottom: 0 }}>
                     <InputNumber
                         style={{ width: '100%' }}
                         placeholder="Max Total"
-                        value={tempTotals.maxTotal ?? filters.maxTotal}
-                        onChange={(value) => setTempTotals((prev) => ({ ...prev, maxTotal: value }))}
+                        value={tempTotals.maxTotal ?? filters.maxTotal ?? null}
+                        onChange={(value) =>
+                            setTempTotals((prev) => ({
+                                ...prev,
+                                maxTotal: value === null ? null : value,
+                            }))
+                        }
                         onBlur={() => handleBlur('maxTotal')}
                     />
                 </Form.Item>
+
+                {/* 🔹 Nút Reset */}
                 <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
                     <Button onClick={handleReset}>Reset bộ lọc</Button>
                 </div>
             </div>
-
-            {/* 🔹 Nút Reset */}
-            {/* <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
-                <Button onClick={handleReset}>Reset bộ lọc</Button>
-            </div> */}
         </div>
     );
 }

@@ -4,6 +4,8 @@ import { OrderFilters, OrderStatistics, GroupBy } from '../../../types';
 import FiltersPanel from './FiltersPanel';
 import ReportChart from './ReportChart';
 import { formatCurrency, postApi } from '../../../utils';
+import Card from '../../ui/data-display/Card';
+
 // ✅ Bộ lọc mặc định
 const DEFAULT_FILTERS: { filters: OrderFilters; groupBy: GroupBy } = {
     filters: {},
@@ -21,12 +23,40 @@ export default function ReportContainer() {
     const [filters, setFilters] = useState<OrderFilters>(DEFAULT_FILTERS.filters);
     const [groupBy, setGroupBy] = useState<GroupBy>(DEFAULT_FILTERS.groupBy);
 
+    // ✅ Hàm chuẩn hoá filters trước khi gửi lên API
+    const normalizeFilters = (f: OrderFilters): OrderFilters => {
+        const normalized = { ...f };
+
+        // Nếu status là chuỗi, chuyển thành mảng
+        if (normalized.status && !Array.isArray(normalized.status)) {
+            normalized.status = [normalized.status];
+        }
+
+        // Xoá field null hoặc undefined để tránh gửi rác
+        Object.keys(normalized).forEach((k) => {
+            if (
+                normalized[k as keyof OrderFilters] === null ||
+                normalized[k as keyof OrderFilters] === undefined ||
+                normalized[k as keyof OrderFilters] === ''
+            ) {
+                delete normalized[k as keyof OrderFilters];
+            }
+        });
+
+        return normalized;
+    };
+
     // Function POST Orders Statistics
-    const getOrders = async (): Promise<OrdersStatisticsResponse> =>
-        postApi<OrdersStatisticsResponse>(
+    const getOrders = async (): Promise<OrdersStatisticsResponse> => {
+        const body = {
+            filters: normalizeFilters(filters),
+            groupBy,
+        };
+        return postApi<OrdersStatisticsResponse>(
             `${process.env.REACT_APP_API_URL}/api/orders/statistics`,
-            { filters, groupBy }
+            body
         );
+    };
 
     // Lấy dữ liệu từ TanStack Query
     const { data: apiResponse, isLoading, isError } = useQuery<
@@ -36,7 +66,6 @@ export default function ReportContainer() {
         queryKey: ['orderStatistics', filters, groupBy],
         queryFn: getOrders,
     });
-
 
     // ✅ Truy cập đúng items
     const chartData: OrderStatistics[] = apiResponse?.data.items ?? [];
@@ -50,83 +79,102 @@ export default function ReportContainer() {
                 }}
             />
 
-            {isLoading && <p>Loading...</p>}
-            {isError && <p>Error loading data</p>}
+            <Card className="mt-6 p-4">
+                {isLoading && <p>Loading...</p>}
+                {isError && <p>Error loading data</p>}
 
-            {!isLoading && !isError && <ReportChart data={chartData} />}
+                {!isLoading && !isError && <ReportChart data={chartData} />}
 
-            {/* ✅ Box thống kê tổng quan */}
-            {!isLoading && !isError && chartData.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
-                    {/* Tổng đơn hàng */}
-                    <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
-                        <p className="text-sm text-gray-500">Tổng đơn hàng</p>
-                        <p className="text-2xl font-semibold text-blue-600 break-words text-center">
-                            {chartData
-                                .reduce((sum, d) => sum + Number(d.total_orders), 0)
-                                .toLocaleString()}
-                        </p>
-                    </div>
+                {/* ✅ Box thống kê tổng quan */}
+                {!isLoading && !isError && chartData.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+                        {/* Tổng đơn hàng */}
+                        <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
+                            <p className="text-sm text-gray-500">Tổng đơn hàng</p>
+                            <p className="text-2xl font-semibold text-blue-600 break-words text-center">
+                                {chartData
+                                    .reduce((sum, d) => sum + Number(d.total_orders), 0)
+                                    .toLocaleString()}
+                            </p>
+                        </div>
 
-                    {/* Tổng doanh thu */}
-                    <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
-                        <p className="text-sm text-gray-500">Tổng doanh thu</p>
-                        <p className="text-2xl font-semibold text-green-600 break-words text-center">
-                            {formatCurrency(
-                                chartData.reduce((sum, d) => sum + Number(d.total_amount), 0)
-                            )}
-                        </p>
-                    </div>
+                        {/* Tổng doanh thu */}
+                        <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
+                            <p className="text-sm text-gray-500">Tổng doanh thu</p>
+                            <p className="text-2xl font-semibold text-green-600 break-words text-center">
+                                {formatCurrency(
+                                    chartData.reduce((sum, d) => sum + Number(d.total_amount), 0)
+                                )}
+                            </p>
+                        </div>
 
-                    {/* Trung bình doanh thu / đơn */}
-                    <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
-                        <p className="text-sm text-gray-500">Doanh thu trung bình / đơn</p>
-                        <p className="text-2xl font-semibold text-indigo-600 break-words text-center">
+                        {/* Trung bình doanh thu / đơn */}
+                        <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
+                            <p className="text-sm text-gray-500">Doanh thu trung bình / đơn</p>
+                            <p className="text-2xl font-semibold text-indigo-600 break-words text-center">
+                                {(() => {
+                                    const totalOrders = chartData.reduce(
+                                        (s, d) => s + Number(d.total_orders),
+                                        0
+                                    );
+                                    const totalAmount = chartData.reduce(
+                                        (s, d) => s + Number(d.total_amount),
+                                        0
+                                    );
+                                    return totalOrders > 0
+                                        ? formatCurrency(totalAmount / totalOrders)
+                                        : '-';
+                                })()}
+                            </p>
+                        </div>
+
+                        {/* Mức tăng/giảm gần nhất */}
+                        <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
+                            <p className="text-sm text-gray-500">Mức tăng trưởng</p>
                             {(() => {
-                                const totalOrders = chartData.reduce(
-                                    (s, d) => s + Number(d.total_orders),
-                                    0
-                                );
-                                const totalAmount = chartData.reduce(
-                                    (s, d) => s + Number(d.total_amount),
-                                    0
-                                );
-                                return totalOrders > 0
-                                    ? formatCurrency(totalAmount / totalOrders)
-                                    : '-';
-                            })()}
-                        </p>
-                    </div>
+                                if (chartData.length < 2) {
+                                    return <p className="text-2xl font-semibold text-gray-400">0%</p>;
+                                }
 
-                    {/* Mức tăng/giảm gần nhất */}
-                    <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
-                        <p className="text-sm text-gray-500">Mức tăng trưởng</p>
-                        <p
-                            className={`text-2xl font-semibold break-words text-center ${(() => {
-                                if (chartData.length < 2) return 'text-gray-400';
                                 const last = chartData[chartData.length - 1];
                                 const prev = chartData[chartData.length - 2];
-                                const change =
-                                    ((Number(last.total_amount) - Number(prev.total_amount)) /
-                                        Number(prev.total_amount)) *
-                                    100;
-                                return change >= 0 ? 'text-emerald-600' : 'text-red-600';
-                            })()}`}
-                        >
-                            {(() => {
-                                if (chartData.length < 2) return 'N/A';
-                                const last = chartData[chartData.length - 1];
-                                const prev = chartData[chartData.length - 2];
-                                const change =
-                                    ((Number(last.total_amount) - Number(prev.total_amount)) /
-                                        Number(prev.total_amount)) *
-                                    100;
-                                return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+
+                                const lastAmount = Number(last?.total_amount);
+                                const prevAmount = Number(prev?.total_amount);
+
+                                let change = 0;
+
+                                if (
+                                    !isNaN(lastAmount) &&
+                                    !isNaN(prevAmount) &&
+                                    prevAmount !== 0 &&
+                                    isFinite(lastAmount) &&
+                                    isFinite(prevAmount)
+                                ) {
+                                    change = ((lastAmount - prevAmount) / prevAmount) * 100;
+                                }
+
+                                const isPositive = change >= 0;
+
+                                return (
+                                    <p
+                                        className={`text-2xl font-semibold break-words text-center ${change === 0
+                                                ? 'text-gray-400'
+                                                : isPositive
+                                                    ? 'text-emerald-600'
+                                                    : 'text-red-600'
+                                            }`}
+                                    >
+                                        {`${change >= 0 ? '+' : ''}${change.toFixed(1)}%`}
+                                    </p>
+                                );
                             })()}
-                        </p>
+                        </div>
+
                     </div>
-                </div>
-            )}
+                )}
+            </Card>
+
         </div>
     );
 }

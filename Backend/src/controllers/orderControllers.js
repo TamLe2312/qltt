@@ -137,30 +137,90 @@ const getAllOrders = async (req, res) => {
   }
 };
 
+// const getOrdersStatistics = async (req, res) => {
+//   try {
+//     let { filters = {}, groupBy = 'month' } = req.body;
 
+//     // ✅ Kiểm tra groupBy hợp lệ
+//     const validGroups = ['day', 'month', 'quarter', 'year'];
+//     if (!validGroups.includes(groupBy)) {
+//       return res.status(400).json({
+//         status: "error",
+//         message: 'groupBy must be one of: day, month, quarter, year'
+//       });
+//     }
+
+//     // ✅ Log SQL trước khi thực thi
+//     const sql = `SELECT * FROM get_orders_statistics($1::jsonb, $2::text)`;
+//     console.log("SQL to execute:", sql);
+//     console.log("Parameters:", { filters, groupBy });
+
+//     // ✅ Thực thi query
+//     const result = await pool.query(sql, [filters, groupBy]);
+
+//     // ✅ Trả kết quả, list rỗng cũng trả 200 để phù hợp với convention
+//     res.json({
+//       data: { items: result.rows },
+//       status: "success",
+//       message: result.rows.length ? "Fetched successfully" : "No statistics found"
+//     });
+//   } catch (err) {
+//     handlePgError(err, res);
+//   }
+// };
 
 const getOrdersStatistics = async (req, res) => {
   try {
     let { filters = {}, groupBy = 'month' } = req.body;
 
     // ✅ Kiểm tra groupBy hợp lệ
-    const validGroups = ['day', 'month', 'quarter', 'year'];
+    const validGroups = ['day', 'month', 'year'];
     if (!validGroups.includes(groupBy)) {
       return res.status(400).json({
         status: "error",
-        message: 'groupBy must be one of: day, month, quarter, year'
+        message: 'groupBy must be one of: day, month, year'
       });
     }
+
+    // ✅ Chuẩn hoá filters
+    if (typeof filters !== 'object') {
+      try {
+        filters = JSON.parse(filters);
+      } catch {
+        return res.status(400).json({
+          status: "error",
+          message: "filters must be a valid JSON object"
+        });
+      }
+    }
+
+    // ✅ Nếu status là chuỗi thì ép thành mảng
+    if (filters.status && typeof filters.status === 'string') {
+      filters.status = [filters.status];
+    }
+
+    // ✅ Loại bỏ field null hoặc rỗng
+    Object.keys(filters).forEach((key) => {
+      const v = filters[key];
+      if (
+        v === null ||
+        v === undefined ||
+        (Array.isArray(v) && v.length === 0) ||
+        v === ''
+      ) {
+        delete filters[key];
+      }
+    });
 
     // ✅ Log SQL trước khi thực thi
     const sql = `SELECT * FROM get_orders_statistics($1::jsonb, $2::text)`;
     console.log("SQL to execute:", sql);
     console.log("Parameters:", { filters, groupBy });
 
-    // ✅ Thực thi query
+    // ✅ Gọi function PostgreSQL (KHÔNG stringify filters)
     const result = await pool.query(sql, [filters, groupBy]);
 
-    // ✅ Trả kết quả, list rỗng cũng trả 200 để phù hợp với convention
+    // ✅ Trả kết quả
     res.json({
       data: { items: result.rows },
       status: "success",
@@ -170,6 +230,8 @@ const getOrdersStatistics = async (req, res) => {
     handlePgError(err, res);
   }
 };
+;
+
 
 const getOrderById = async (req, res) => {
   try {
