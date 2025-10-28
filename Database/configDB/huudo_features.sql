@@ -38,55 +38,80 @@ RETURNS TABLE(
 ) AS $$
 DECLARE
     sql TEXT;
+    conditions TEXT := '';
 BEGIN
-    sql := 'SELECT DATE_TRUNC(''' || group_by || ''', created_at) as period,
-                   COUNT(*) as total_orders,
-                   SUM(total_amount) as total_amount
-            FROM orders
-            WHERE deleted_at IS NULL';
+    IF group_by NOT IN ('day', 'month', 'year') THEN
+        RAISE EXCEPTION 'Invalid group_by value: %', group_by;
+    END IF;
 
+    sql := format(
+        'SELECT DATE_TRUNC(%L, created_at) AS period,
+                COUNT(*) AS total_orders,
+                COALESCE(SUM(total_amount), 0) AS total_amount
+         FROM orders
+         WHERE deleted_at IS NULL',
+        group_by
+    );
+
+    -- Lọc theo startDate
     IF filters ? 'startDate' THEN
-        sql := sql || ' AND created_at >= ' || quote_literal(filters->>'startDate');
+        conditions := conditions || format(' AND created_at >= %L', filters->>'startDate');
     END IF;
 
+    -- Lọc theo endDate
     IF filters ? 'endDate' THEN
-        sql := sql || ' AND created_at <= ' || quote_literal(filters->>'endDate');
+        conditions := conditions || format(' AND created_at <= %L', filters->>'endDate');
     END IF;
 
+    -- ✅ Lọc theo status (sửa lỗi ANY)
     IF filters ? 'status' THEN
-        sql := sql || ' AND status = ANY(
-            ARRAY(
-                SELECT jsonb_array_elements_text(' || quote_literal(filters->>'status') || '::jsonb)::order_status
-            )
-        )';
+        conditions := conditions || format(
+            ' AND status::text = ANY(
+                ARRAY(SELECT jsonb_array_elements_text(%L::jsonb))
+            )',
+            filters->>'status'
+        );
     END IF;
 
+    -- Lọc theo branchId
     IF filters ? 'branchId' THEN
-        sql := sql || ' AND branch_id = ' || (filters->>'branchId');
+        conditions := conditions || format(' AND branch_id = %s::INT', quote_literal(filters->>'branchId'));
     END IF;
 
+    -- Lọc theo city
     IF filters ? 'city' THEN
-        sql := sql || ' AND city = ' || quote_literal(filters->>'city');
+        conditions := conditions || format(' AND city = %L', filters->>'city');
     END IF;
 
+    -- Lọc theo userId
     IF filters ? 'userId' THEN
-        sql := sql || ' AND user_id = ' || (filters->>'userId');
+        conditions := conditions || format(' AND user_id = %s::INT', quote_literal(filters->>'userId'));
     END IF;
 
+    -- Lọc theo tổng tiền tối thiểu
     IF filters ? 'minTotal' THEN
-        sql := sql || ' AND total_amount >= ' || (filters->>'minTotal');
+        conditions := conditions || format(' AND total_amount >= %s::NUMERIC', quote_literal(filters->>'minTotal'));
     END IF;
 
+    -- Lọc theo tổng tiền tối đa
     IF filters ? 'maxTotal' THEN
-        sql := sql || ' AND total_amount <= ' || (filters->>'maxTotal');
+        conditions := conditions || format(' AND total_amount <= %s::NUMERIC', quote_literal(filters->>'maxTotal'));
     END IF;
 
-    sql := sql || ' GROUP BY period ORDER BY period';
+    sql := sql || conditions || ' GROUP BY period ORDER BY period';
 
     RETURN QUERY EXECUTE sql;
 END;
 $$ LANGUAGE plpgsql;
-cho thêm nhiều ví dụ thao tác trực tiếp trong sql với hàm này
+
+
+
+
+
+
+
+
+
 
 CREATE TYPE inventory_status AS ENUM (
   'active',
