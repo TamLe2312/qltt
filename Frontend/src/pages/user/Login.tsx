@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { loginSuccess } from "../../store/slices/authSlice";
+import { loginSuccess, User } from "../../store/slices/authSlice";
 import Input from "../../components/ui/form/Input";
 import Button from "../../components/ui/form/Button";
 import { isValidEmail, postApi } from "../../utils";
@@ -49,13 +49,14 @@ const Login: React.FC = () => {
 
   interface AuthResponse {
     accessToken: string;
+    user: User;
   }
   const loginMutation = useMutation<AuthResponse, Error, typeof formData>({
     mutationFn: (newUser: typeof formData) =>
       postApi(`${process.env.REACT_APP_API_URL}/api/auth/login`, newUser),
     onSuccess: (data) => {
       localStorage.setItem("accessToken", data.accessToken);
-
+      dispatch(loginSuccess(data.user));
       toast.success("Đăng nhập thành công!");
       resetForm();
       navigate("/");

@@ -1,11 +1,13 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface User {
   id: string;
-  name: string;
+  full_name: string;
+  username: string;
   email: string;
-  role: 'admin' | 'manager' | 'staff';
-  avatar?: string;
+  phone: string;
+  role: "Admin" | "Employee" | "Customer";
+  roleId: number;
 }
 
 export interface AuthState {
@@ -21,7 +23,7 @@ const initialState: AuthState = {
 };
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: "auth",
   initialState,
   reducers: {
     loginStart: (state) => {
@@ -50,5 +52,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { loginStart, loginSuccess, loginFailure, logout, updateUser } = authSlice.actions;
+export const { loginStart, loginSuccess, loginFailure, logout, updateUser } =
+  authSlice.actions;
 export default authSlice.reducer;

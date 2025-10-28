@@ -4,9 +4,13 @@ import Input from "../../components/ui/form/Input";
 import Button from "../../components/ui/form/Button";
 import { isValidEmail, isValidVietnamesePhone, postApi } from "../../utils";
 import toast from "react-hot-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { loginSuccess, User } from "../../store/slices/authSlice";
+import { useDispatch } from "react-redux";
 
 const Register: React.FC = () => {
+  const dispatch = useDispatch();
+
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     full_name: "",
@@ -77,13 +81,14 @@ const Register: React.FC = () => {
   };
   interface AuthResponse {
     accessToken: string;
+    user: User;
   }
   const registerMutation = useMutation<AuthResponse, Error, typeof formData>({
     mutationFn: (newUser: typeof formData) =>
       postApi(`${process.env.REACT_APP_API_URL}/api/auth/register`, newUser),
     onSuccess: (data) => {
       localStorage.setItem("accessToken", data.accessToken);
-
+      dispatch(loginSuccess(data.user));
       toast.success("Đăng ký thành công!");
       resetForm();
       navigate("/");

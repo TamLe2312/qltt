@@ -8,7 +8,7 @@ async function login(req, res) {
   try {
     const { email, password } = req.body;
     const user = await dbHeadOffice.query(
-      `SELECT u.id, u.username, r.name AS role, r.id AS role_id, u.password
+      `SELECT u.id, u.full_name, u.username, u.phone, r.name AS role, r.id AS role_id, u.password
       FROM users u
       JOIN user_roles ur ON u.id = ur.user_id
       JOIN roles r ON ur.role_id = r.id
@@ -31,8 +31,11 @@ async function login(req, res) {
     }
 
     const payload = {
-      userId: user[0].id,
+      id: user[0].id,
+      full_name: user[0].full_name,
       username: user[0].username,
+      email: email,
+      phone: user[0].phone,
       roleId: user[0].role_id,
       role: user[0].role,
     };
@@ -41,9 +44,19 @@ async function login(req, res) {
       expiresIn: process.env.JWT_EXPIRATION_TIME,
     });
 
-    return res
-      .status(200)
-      .json({ message: "Login successful", accessToken: accessToken });
+    return res.status(200).json({
+      message: "Login successful",
+      accessToken: accessToken,
+      user: {
+        id: user[0].id,
+        full_name: user[0].full_name,
+        username: user[0].username,
+        email: email,
+        phone: user[0].phone,
+        roleId: user[0].role_id,
+        role: user[0].role,
+      },
+    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -124,8 +137,11 @@ async function register(req, res) {
     );
 
     const payload = {
-      userId: newUserId,
+      id: newUserId,
+      full_name: full_name,
       username: username,
+      email: email,
+      phone: phone,
       roleId: defaultRoleId,
       role: role[0].name,
     };
@@ -144,7 +160,7 @@ async function register(req, res) {
         username: username,
         email: email,
         phone: phone,
-        role_id: defaultRoleId,
+        roleId: defaultRoleId,
         role: role[0].name,
       },
     });
