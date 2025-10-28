@@ -15,13 +15,13 @@ Router.get(
 Router.get(
   "/:id",
   authenticateToken,
-  authorizeRole(["Admin", "Employee"]),
+  authorizeRole(["Admin"]),
   orderController.getOrderById
 );
 Router.get(
   "/:id/products",
   authenticateToken,
-  authorizeRole(["Admin", "Employee"]),
+  authorizeRole(["Admin"]),
   orderController.getOrderProducts
 );
 Router.post(

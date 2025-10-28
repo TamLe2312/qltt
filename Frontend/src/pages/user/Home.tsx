@@ -36,7 +36,7 @@ const Home: React.FC = () => {
     }
   }, [dispatch, navigate]);
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto mt-10">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-xl p-12 text-white mb-12">
         <h1 className="text-5xl font-bold mb-4">Chào mừng đến với QLTT</h1>

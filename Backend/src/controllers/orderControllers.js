@@ -108,8 +108,6 @@ const getOrdersStatistics = async (req, res) => {
       }
     );
     const items = result[0];
-    console.log(items);
-
     res.json({
       data: { items },
       status: "success",
