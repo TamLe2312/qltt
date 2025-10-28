@@ -1,5 +1,28 @@
-import axios, { AxiosRequestConfig } from 'axios';
-import { ApiResponse } from '../types';
+import axios, { AxiosRequestConfig } from "axios";
+import { ApiResponse } from "../types";
+
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("accessToken");
+    console.log(token);
+
+    if (token) {
+      config.headers!["Authorization"] = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Fnc tùy biến get request
 export const getApi = async <T = any>(
@@ -8,9 +31,9 @@ export const getApi = async <T = any>(
   config?: AxiosRequestConfig
 ): Promise<ApiResponse<T>> => {
   try {
-    const response = await axios.get<ApiResponse<T>>(url, {
+    const response = await apiClient.get<ApiResponse<T>>(url, {
       headers: {
-        'Cache-Control': 'no-cache',
+        "Cache-Control": "no-cache",
       },
       params,
       ...config,
@@ -33,7 +56,7 @@ export const postApi = async <T>(
   config?: AxiosRequestConfig
 ): Promise<T> => {
   try {
-    const response = await axios.post<T>(url, data, {
+    const response = await apiClient.post<T>(url, data, {
       headers: {
         "Content-Type": "application/json",
         ...config?.headers,
@@ -51,8 +74,8 @@ export const deleteApi = async <T = any>(
   config?: AxiosRequestConfig
 ): Promise<ApiResponse<T>> => {
   try {
-    const response = await axios.delete<ApiResponse<T>>(url, {
-      headers: { 'Cache-Control': 'no-cache', ...(config?.headers || {}) },
+    const response = await apiClient.delete<ApiResponse<T>>(url, {
+      headers: { "Cache-Control": "no-cache", ...(config?.headers || {}) },
       ...config,
     });
     return response.data;
@@ -67,7 +90,7 @@ export const putApi = async <T>(
   config?: AxiosRequestConfig
 ): Promise<T> => {
   try {
-    const response = await axios.put<T>(url, data, {
+    const response = await apiClient.put<T>(url, data, {
       headers: {
         "Content-Type": "application/json",
         ...config?.headers,
@@ -85,9 +108,6 @@ export const putApi = async <T>(
   }
 };
 
-
-
-
 // ===== FORMATTING UTILITIES =====
 
 /**
@@ -96,41 +116,44 @@ export const putApi = async <T>(
 // utils/formatCurrency.ts
 export const formatCurrency = (
   amount?: number | null,
-  currency: string = 'VND',
+  currency: string = "VND",
   minimumFractionDigits: number = 0
 ): string => {
-  if (amount == null || isNaN(amount)) return '-';
+  if (amount == null || isNaN(amount)) return "-";
 
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
     currency,
     minimumFractionDigits,
   }).format(amount);
 };
 
-
 /**
  * Format number with thousand separators
  */
 export const formatNumber = (num: number): string => {
-  return new Intl.NumberFormat('vi-VN').format(num);
+  return new Intl.NumberFormat("vi-VN").format(num);
 };
 
 /**
  * Format date to Vietnamese format
  */
-export const formatDate = (date: string | Date, options?: Intl.DateTimeFormatOptions): string => {
+export const formatDate = (
+  date: string | Date,
+  options?: Intl.DateTimeFormatOptions
+): string => {
   const defaultOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   };
 
-  return new Intl.DateTimeFormat('vi-VN', { ...defaultOptions, ...options }).format(
-    typeof date === 'string' ? new Date(date) : date
-  );
+  return new Intl.DateTimeFormat("vi-VN", {
+    ...defaultOptions,
+    ...options,
+  }).format(typeof date === "string" ? new Date(date) : date);
 };
 
 /**
@@ -138,15 +161,15 @@ export const formatDate = (date: string | Date, options?: Intl.DateTimeFormatOpt
  */
 export const formatPhoneNumber = (phone: string): string => {
   // Remove all non-digit characters
-  const cleaned = phone.replace(/\D/g, '');
+  const cleaned = phone.replace(/\D/g, "");
 
   // Format Vietnamese phone number
-  if (cleaned.length === 10 && cleaned.startsWith('0')) {
-    return cleaned.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3');
+  if (cleaned.length === 10 && cleaned.startsWith("0")) {
+    return cleaned.replace(/(\d{4})(\d{3})(\d{3})/, "$1 $2 $3");
   }
 
-  if (cleaned.length === 11 && cleaned.startsWith('84')) {
-    return cleaned.replace(/(\d{2})(\d{4})(\d{3})(\d{3})/, '+$1 $2 $3 $4');
+  if (cleaned.length === 11 && cleaned.startsWith("84")) {
+    return cleaned.replace(/(\d{2})(\d{4})(\d{3})(\d{3})/, "+$1 $2 $3 $4");
   }
 
   return phone; // Return original if doesn't match expected format
@@ -167,7 +190,7 @@ export const isValidEmail = (email: string): boolean => {
  */
 export const isValidVietnamesePhone = (phone: string): boolean => {
   const phoneRegex = /^(0|\+84)[3-9]\d{8}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
+  return phoneRegex.test(phone.replace(/\s/g, ""));
 };
 
 /**
@@ -192,7 +215,7 @@ export const isValidPostalCode = (code: string): boolean => {
  * Capitalize first letter of each word
  */
 export const capitalizeWords = (str: string): string => {
-  return str.replace(/\b\w/g, char => char.toUpperCase());
+  return str.replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 /**
@@ -200,14 +223,14 @@ export const capitalizeWords = (str: string): string => {
  */
 export const truncateText = (text: string, maxLength: number): string => {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + '...';
+  return text.slice(0, maxLength) + "...";
 };
 
 /**
  * Remove Vietnamese diacritics
  */
 export const removeVietnameseDiacritics = (str: string): string => {
-  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
 /**
@@ -216,9 +239,9 @@ export const removeVietnameseDiacritics = (str: string): string => {
 export const generateSlug = (text: string): string => {
   return removeVietnameseDiacritics(text)
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
     .trim();
 };
 
@@ -233,7 +256,7 @@ export const removeDuplicates = <T>(array: T[], key?: keyof T): T[] => {
   }
 
   const seen = new Set();
-  return array.filter(item => {
+  return array.filter((item) => {
     const value = item[key];
     if (seen.has(value)) {
       return false;
@@ -258,13 +281,17 @@ export const groupBy = <T>(array: T[], key: keyof T): Record<string, T[]> => {
 /**
  * Sort array by key
  */
-export const sortBy = <T>(array: T[], key: keyof T, direction: 'asc' | 'desc' = 'asc'): T[] => {
+export const sortBy = <T>(
+  array: T[],
+  key: keyof T,
+  direction: "asc" | "desc" = "asc"
+): T[] => {
   return [...array].sort((a, b) => {
     const aVal = a[key];
     const bVal = b[key];
 
-    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+    if (aVal < bVal) return direction === "asc" ? -1 : 1;
+    if (aVal > bVal) return direction === "asc" ? 1 : -1;
     return 0;
   });
 };
@@ -275,10 +302,10 @@ export const sortBy = <T>(array: T[], key: keyof T, direction: 'asc' | 'desc' = 
  * Deep clone object
  */
 export const deepClone = <T>(obj: T): T => {
-  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj === null || typeof obj !== "object") return obj;
   if (obj instanceof Date) return new Date(obj.getTime()) as any;
-  if (obj instanceof Array) return obj.map(item => deepClone(item)) as any;
-  if (typeof obj === 'object') {
+  if (obj instanceof Array) return obj.map((item) => deepClone(item)) as any;
+  if (typeof obj === "object") {
     const clonedObj = {} as T;
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
@@ -293,20 +320,26 @@ export const deepClone = <T>(obj: T): T => {
 /**
  * Merge objects deeply
  */
-export const deepMerge = <T extends Record<string, any>>(target: T, source: Partial<T>): T => {
+export const deepMerge = <T extends Record<string, any>>(
+  target: T,
+  source: Partial<T>
+): T => {
   const result = { ...target };
 
   for (const key in source) {
     if (source.hasOwnProperty(key)) {
       if (
-        typeof source[key] === 'object' &&
+        typeof source[key] === "object" &&
         source[key] !== null &&
         !Array.isArray(source[key]) &&
-        typeof result[key] === 'object' &&
+        typeof result[key] === "object" &&
         result[key] !== null &&
         !Array.isArray(result[key])
       ) {
-        result[key] = deepMerge(result[key] as Record<string, any>, source[key] as Record<string, any>) as T[Extract<keyof T, string>];
+        result[key] = deepMerge(
+          result[key] as Record<string, any>,
+          source[key] as Record<string, any>
+        ) as T[Extract<keyof T, string>];
       } else {
         result[key] = source[key] as T[Extract<keyof T, string>];
       }
@@ -352,7 +385,7 @@ export const storage = {
     try {
       localStorage.clear();
     } catch (error) {
-      console.error('Error clearing localStorage:', error);
+      console.error("Error clearing localStorage:", error);
     }
   },
 };
@@ -366,9 +399,9 @@ export const buildQueryString = (params: Record<string, any>): string => {
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== null && value !== undefined && value !== '') {
+    if (value !== null && value !== undefined && value !== "") {
       if (Array.isArray(value)) {
-        value.forEach(item => searchParams.append(key, String(item)));
+        value.forEach((item) => searchParams.append(key, String(item)));
       } else {
         searchParams.append(key, String(value));
       }
@@ -381,7 +414,9 @@ export const buildQueryString = (params: Record<string, any>): string => {
 /**
  * Parse query string to object
  */
-export const parseQueryString = (queryString: string): Record<string, string | string[]> => {
+export const parseQueryString = (
+  queryString: string
+): Record<string, string | string[]> => {
   const params = new URLSearchParams(queryString);
   const result: Record<string, string | string[]> = {};
 

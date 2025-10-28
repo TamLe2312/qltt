@@ -93,22 +93,29 @@ const getOrdersStatistics = async (req, res) => {
         message: "groupBy must be one of: day, month, quarter, year",
       });
     }
+    const db = await getDbByBranchId(filters.branchId);
 
-    const sql = `SELECT * FROM get_orders_statistics($1::jsonb, $2::text)`;
-    console.log("SQL to execute:", sql);
-    console.log("Parameters:", { filters, groupBy });
-
-    const result = await pool.query(sql, [filters, groupBy]);
+    const result = await db.query(
+      `EXEC sp_get_orders_statistics 
+         @filters = :filters, 
+         @group_by = :group_by`,
+      {
+        replacements: {
+          filters: JSON.stringify(filters),
+          group_by: groupBy,
+        },
+        type: QueryTypes.RAW,
+      }
+    );
+    const items = result[0];
+    console.log(items);
 
     res.json({
-      data: { items: result.rows },
+      data: { items },
       status: "success",
-      message: result.rows.length
-        ? "Fetched successfully"
-        : "No statistics found",
+      message: items.length ? "Fetched successfully" : "No statistics found",
     });
   } catch (err) {
-    await t.rollback();
     console.error(err);
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
