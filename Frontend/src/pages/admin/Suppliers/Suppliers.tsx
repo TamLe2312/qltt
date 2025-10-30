@@ -119,8 +119,6 @@ const Suppliers: React.FC = () => {
     if (searchQuery) {
       params.search = searchQuery;
     }
-    console.log(searchQuery);
-
     return getApi(`${process.env.REACT_APP_API_URL}/api/suppliers`, params);
   };
   const { data: apiResponse, isLoading } = useQuery({

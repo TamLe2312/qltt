@@ -8,7 +8,13 @@ import Button from "../../../components/ui/form/Button";
 import Card from "../../../components/ui/data-display/Card";
 import Table from "../../../components/ui/data-display/Table";
 import DropdownSelect from "../../../components/ui/form/DropdownSelect";
-
+import { loginSuccess, logout, User } from "../../../store/slices/authSlice";
+import { jwtDecode } from "jwt-decode";
+import { useDispatch } from "react-redux";
+interface DecodedToken extends User {
+  iat: number;
+  exp: number;
+}
 interface OrderWithRelations {
   id: string;
   order_code: string;
@@ -186,6 +192,33 @@ const OrderDetails: React.FC = () => {
     },
   ];
 
+  const dispatch = useDispatch();
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      try {
+        const decodedUser = jwtDecode<DecodedToken>(token);
+        if (decodedUser.exp * 1000 > Date.now()) {
+          if (decodedUser.role !== "Admin") {
+            toast.error("Không có quyền truy cập. Yêu cầu quyền Admin.");
+            navigate(-1);
+            return;
+          }
+          dispatch(loginSuccess(decodedUser));
+        } else {
+          toast.error("Token đã hết hạn.");
+          localStorage.removeItem("accessToken");
+          dispatch(logout());
+        }
+      } catch (error) {
+        toast.error("Token không hợp lệ.");
+        localStorage.removeItem("accessToken");
+        dispatch(logout());
+      }
+    } else {
+      navigate("/");
+    }
+  }, [dispatch, navigate]);
   return (
     <div className="space-y-6">
       {/* Header */}

@@ -273,6 +273,16 @@ const Products: React.FC = () => {
       ),
     },
     {
+      key: "category_name",
+      title: "Danh mục",
+      sortable: true,
+      render: (value: string) => (
+        <div>
+          <p className="font-medium text-gray-600">{value}</p>
+        </div>
+      ),
+    },
+    {
       key: "created_at",
       title: "Ngày tạo",
       sortable: true,

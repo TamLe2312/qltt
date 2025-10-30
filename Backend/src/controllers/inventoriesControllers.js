@@ -33,10 +33,11 @@ const getAllInventories = async (req, res) => {
 
       whereClauses.push(`
     (p.sku COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
-     OR p.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?)
+     OR p.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?
+     OR s.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?)
   `);
 
-      replacements.push(searchTerm, searchTerm);
+      replacements.push(searchTerm, searchTerm, searchTerm);
     }
     const whereString = whereClauses.join(" AND ");
 
@@ -60,6 +61,7 @@ const getAllInventories = async (req, res) => {
     const countQuery = `SELECT COUNT(i.id) AS totalCount 
     FROM inventories i
     JOIN products p ON i.product_id = p.id
+    JOIN suppliers s ON i.supplier_id = s.id
     WHERE ${whereString}`;
 
     const replacementsMain = [...replacements, offsetNum, limitNum];

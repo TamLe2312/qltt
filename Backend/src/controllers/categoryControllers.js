@@ -3,7 +3,6 @@ const { QueryTypes } = require("sequelize");
 const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 
 const getAllCategoriesTree = async (req, res) => {
-  const t = await dbHeadOffice.transaction();
   try {
     const { limit, page } = req.query;
 
@@ -16,37 +15,19 @@ const getAllCategoriesTree = async (req, res) => {
       {
         replacements: [limitNum, offsetNum],
         type: QueryTypes.SELECT,
-        transaction: t,
       }
     );
 
     const trees = buildTree(results);
 
-    const totalResult = await dbHeadOffice.query(
-      `SELECT COUNT(*) AS total FROM categories`,
-      {
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
-    const total = parseInt(totalResult[0].total, 10);
-    const totalPages = Math.ceil(total / limitNum);
-
     res.json({
       data: {
         items: trees,
-        pagination: {
-          total,
-          pageNum,
-          perPage: limitNum,
-          totalPages,
-        },
       },
       status: "success",
       message: "Fetched successfully",
     });
   } catch (err) {
-    await t.rollback();
     console.error(err);
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }

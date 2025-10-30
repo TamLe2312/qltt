@@ -351,6 +351,14 @@ const Inventories: React.FC = () => {
       ),
     },
     {
+      key: "supplier_name",
+      title: "Nhà cung cấp",
+      sortable: true,
+      render: (value: string) => (
+        <p className="font-medium text-gray-600">{value}</p>
+      ),
+    },
+    {
       key: "product_name",
       title: "Sản phẩm",
       render: (value: string, item: any) => (

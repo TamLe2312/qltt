@@ -33,23 +33,27 @@ const getAllProducts = async (req, res) => {
 
       whereClauses.push(`
     (p.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
-     OR p.sku COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?)
+     OR p.sku COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?
+     OR c.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?)
   `);
 
-      replacements.push(searchTerm, searchTerm);
+      replacements.push(searchTerm, searchTerm, searchTerm);
     }
 
     const whereString = whereClauses.join(" AND ");
 
     const mainQuery = `SELECT 
-        p.id, p.sku, p.avatar, p.name, p.unit_of_measure, p.status, p.price, p.created_at
+        p.id, p.sku, p.avatar, p.name, p.unit_of_measure, p.status, p.price, p.created_at, c.name AS category_name
        FROM products p
+      LEFT JOIN Categories c ON p.category_id = c.id
        WHERE ${whereString}
        ORDER BY ${sortColumn} ${sortDir}
        OFFSET ? ROWS
        FETCH NEXT ? ROWS ONLY`;
 
-    const countQuery = `SELECT COUNT(*) AS totalCount FROM products p WHERE ${whereString}`;
+    const countQuery = `SELECT COUNT(*) AS totalCount FROM products p
+    LEFT JOIN Categories c ON p.category_id = c.id
+     WHERE ${whereString}`;
 
     const replacementsMain = [...replacements, offsetNum, limitNum];
 
