@@ -2,9 +2,8 @@ const { QueryTypes } = require("sequelize");
 const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 
 const getAllSuppliers = async (req, res) => {
-  const t = await dbHeadOffice.transaction();
   try {
-    const { limit, page, sortBy, sortOrder } = req.query;
+    const { limit, page, sortBy, sortOrder, search } = req.query;
 
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
@@ -20,29 +19,47 @@ const getAllSuppliers = async (req, res) => {
     const sortKey = allowedSortColumns.includes(sortBy) ? sortBy : "created_at";
     const sortColumn = sortMap[sortKey];
     const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
-    const results = await dbHeadOffice.query(
-      `SELECT id, name, street, ward, district, city, country, zipcode, email, phone, created_at FROM suppliers
-      WHERE deleted_at IS NULL
+
+    let whereClauses = ["deleted_at IS NULL"];
+    let replacements = [];
+
+    if (search) {
+      const searchTerm = `%${search}%`;
+
+      whereClauses.push(`
+    (name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
+     OR email COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
+     OR phone LIKE ?)
+  `);
+
+      replacements.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    const whereString = whereClauses.join(" AND ");
+
+    const mainQuery = `SELECT id, name, street, ward, district, city, country, zipcode, email, phone, created_at FROM suppliers
+       WHERE ${whereString}
        ORDER BY ${sortColumn} ${sortDir}
        OFFSET ? ROWS
-       FETCH NEXT ? ROWS ONLY`,
-      {
-        replacements: [offsetNum, limitNum],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
+       FETCH NEXT ? ROWS ONLY`;
 
-    const totalResult = await dbHeadOffice.query(
-      `SELECT COUNT(*) AS total FROM suppliers WHERE deleted_at IS NULL`,
-      {
-        type: QueryTypes.SELECT,
-      }
-    );
-    const total = parseInt(totalResult[0].total, 10);
+    const countQuery = `SELECT COUNT(*) AS totalCount FROM suppliers WHERE ${whereString}`;
+
+    const replacementsMain = [...replacements, offsetNum, limitNum];
+
+    const results = await dbHeadOffice.query(mainQuery, {
+      replacements: replacementsMain,
+      type: QueryTypes.SELECT,
+    });
+
+    const countResult = await dbHeadOffice.query(countQuery, {
+      replacements: replacements,
+      type: QueryTypes.SELECT,
+    });
+
+    const total = parseInt(countResult[0].totalCount, 10);
     const totalPages = Math.ceil(total / limitNum);
 
-    await t.commit();
     res.json({
       data: {
         items: results,
@@ -61,7 +78,6 @@ const getAllSuppliers = async (req, res) => {
       message: "Fetched successfully",
     });
   } catch (err) {
-    await t.rollback();
     console.error(err);
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }

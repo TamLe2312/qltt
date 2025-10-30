@@ -2,10 +2,8 @@ const { QueryTypes, DatabaseError } = require("sequelize");
 const { dbHeadOffice, getDbByBranchId } = require("../config/db.js");
 
 const getAllOrders = async (req, res) => {
-  let t;
   try {
-    const { branch_id, limit, page, sortBy, sortOrder } = req.query;
-
+    const { branch_id, limit, page, sortBy, sortOrder, search } = req.query;
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
     const offsetNum = (pageNum - 1) * limitNum;
@@ -13,8 +11,7 @@ const getAllOrders = async (req, res) => {
     const sortMap = {
       id: "oc.id",
       order_code: "oc.order_code",
-      username: "u.username",
-      branch_name: "b.name",
+      username: "username",
       status: "oe.status",
       total_amount: "oe.total_amount",
       created_at: "oc.created_at",
@@ -25,39 +22,53 @@ const getAllOrders = async (req, res) => {
     const sortColumn = sortMap[sortKey];
     const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
 
-    const db = getDbByBranchId(branch_id);
-    t = await db.transaction();
+    let whereClauses = ["oc.deleted_at IS NULL AND oc.branch_id = ?"];
+    let replacements = [branch_id];
 
-    const results = await db.query(
-      `
-      SELECT oc.id, oc.order_code, oe.status, oe.note, oe.total_amount, u.full_name AS username, b.name AS branch_name
+    if (search) {
+      const searchTerm = `%${search}%`;
+
+      whereClauses.push(`
+    (oc.order_code COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
+     OR u.full_name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?)
+  `);
+
+      replacements.push(searchTerm, searchTerm);
+    }
+    const whereString = whereClauses.join(" AND ");
+
+    const db = getDbByBranchId(branch_id);
+
+    const mainQuery = `SELECT oc.id, oc.order_code, oe.status, oe.note, oe.total_amount, u.full_name AS username, b.name AS branch_name, oc.created_at
       FROM orders_core oc
       LEFT JOIN users u ON oc.user_id = u.id
       LEFT JOIN branches b ON oc.branch_id = b.id
       LEFT JOIN orders_extra oe ON oc.id = oe.order_id
-      WHERE oc.branch_id = ?
+      WHERE ${whereString}
       ORDER BY ${sortColumn} ${sortDir}
       OFFSET ? ROWS
-      FETCH NEXT ? ROWS ONLY
-      `,
-      {
-        replacements: [branch_id, offsetNum, limitNum],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
+      FETCH NEXT ? ROWS ONLY`;
 
-    const totalResult = await db.query(
-      `SELECT COUNT(*) AS total FROM orders_core WHERE branch_id = ?`,
-      {
-        replacements: [branch_id],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
-    const total = parseInt(totalResult[0].total, 10);
+    const countQuery = `SELECT COUNT(oc.id) AS totalCount 
+    FROM orders_core oc
+    LEFT JOIN users u ON oc.user_id = u.id
+    LEFT JOIN branches b ON oc.branch_id = b.id
+    WHERE ${whereString}`;
+
+    const replacementsMain = [...replacements, offsetNum, limitNum];
+
+    const results = await db.query(mainQuery, {
+      replacements: replacementsMain,
+      type: QueryTypes.SELECT,
+    });
+
+    const countResult = await db.query(countQuery, {
+      replacements: replacements,
+      type: QueryTypes.SELECT,
+    });
+
+    const total = parseInt(countResult[0].totalCount, 10);
     const totalPages = Math.ceil(total / limitNum);
-    await t.commit();
     res.json({
       data: {
         items: results,
@@ -76,7 +87,6 @@ const getAllOrders = async (req, res) => {
       message: "Fetched successfully",
     });
   } catch (err) {
-    await t.rollback();
     console.error(err);
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }

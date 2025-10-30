@@ -3,9 +3,8 @@ const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 const { deleteImages } = require("../middlewares/multerConfig.js");
 
 const getAllProducts = async (req, res) => {
-  const t = await dbHeadOffice.transaction();
   try {
-    const { limit, page, sortBy, sortOrder } = req.query;
+    const { limit, page, sortBy, sortOrder, search } = req.query;
 
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
@@ -26,29 +25,45 @@ const getAllProducts = async (req, res) => {
     const sortColumn = sortMap[sortKey];
     const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
 
-    const results = await dbHeadOffice.query(
-      `SELECT 
+    let whereClauses = ["p.deleted_at IS NULL"];
+    let replacements = [];
+
+    if (search) {
+      const searchTerm = `%${search}%`;
+
+      whereClauses.push(`
+    (p.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
+     OR p.sku COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?)
+  `);
+
+      replacements.push(searchTerm, searchTerm);
+    }
+
+    const whereString = whereClauses.join(" AND ");
+
+    const mainQuery = `SELECT 
         p.id, p.sku, p.avatar, p.name, p.unit_of_measure, p.status, p.price, p.created_at
        FROM products p
-       WHERE p.deleted_at IS NULL
+       WHERE ${whereString}
        ORDER BY ${sortColumn} ${sortDir}
        OFFSET ? ROWS
-       FETCH NEXT ? ROWS ONLY`,
-      {
-        replacements: [offsetNum, limitNum],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
+       FETCH NEXT ? ROWS ONLY`;
 
-    const totalResult = await dbHeadOffice.query(
-      `SELECT COUNT(*) AS total FROM products WHERE deleted_at IS NULL`,
-      {
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
-    const total = parseInt(totalResult[0].total, 10);
+    const countQuery = `SELECT COUNT(*) AS totalCount FROM products p WHERE ${whereString}`;
+
+    const replacementsMain = [...replacements, offsetNum, limitNum];
+
+    const results = await dbHeadOffice.query(mainQuery, {
+      replacements: replacementsMain,
+      type: QueryTypes.SELECT,
+    });
+
+    const countResult = await dbHeadOffice.query(countQuery, {
+      replacements: replacements,
+      type: QueryTypes.SELECT,
+    });
+
+    const total = parseInt(countResult[0].totalCount, 10);
     const totalPages = Math.ceil(total / limitNum);
 
     res.json({

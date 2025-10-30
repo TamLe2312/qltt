@@ -2,9 +2,8 @@ const { QueryTypes } = require("sequelize");
 const { dbHeadOffice, getDbByBranchId } = require("../config/db");
 
 const getAllInventories = async (req, res) => {
-  let t;
   try {
-    const { limit, page, sortBy, sortOrder, branch_id } = req.query;
+    const { limit, page, sortBy, sortOrder, branch_id, search } = req.query;
 
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
@@ -26,44 +25,56 @@ const getAllInventories = async (req, res) => {
     const sortColumn = sortMap[sortKey];
     const sortDir = sortOrder === "asc" ? "ASC" : "DESC";
 
+    let whereClauses = ["i.deleted_at IS NULL AND i.branch_id = ?"];
+    let replacements = [branch_id];
+
+    if (search) {
+      const searchTerm = `%${search}%`;
+
+      whereClauses.push(`
+    (p.sku COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
+     OR p.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?)
+  `);
+
+      replacements.push(searchTerm, searchTerm);
+    }
+    const whereString = whereClauses.join(" AND ");
+
     const db = getDbByBranchId(branch_id);
-    t = await db.transaction();
-    const results = await db.query(
-      `
-      SELECT 
+
+    const mainQuery = `SELECT 
         i.id, 
         p.id AS product_id, p.name AS product_name, p.sku, 
         s.id AS supplier_id, s.name AS supplier_name, 
         i.quantity, i.reserved_stock, 
-        b.id AS branch_id, b.name AS branch_name
+        b.id AS branch_id, b.name AS branch_name, i.created_at
       FROM inventories i
       JOIN products p ON i.product_id = p.id
       JOIN suppliers s ON i.supplier_id = s.id
       JOIN branches b ON i.branch_id = b.id
-      WHERE i.deleted_at IS NULL AND i.branch_id = ?
+      WHERE ${whereString}
       ORDER BY ${sortColumn} ${sortDir}
       OFFSET ? ROWS
-      FETCH NEXT ? ROWS ONLY
-      `,
-      {
-        replacements: [branch_id, offsetNum, limitNum],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
+      FETCH NEXT ? ROWS ONLY`;
 
-    const countResult = await dbHeadOffice.query(
-      "SELECT COUNT(*) AS totalCount FROM inventories WHERE deleted_at IS NULL AND branch_id = ?",
-      {
-        replacements: [branch_id],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
+    const countQuery = `SELECT COUNT(i.id) AS totalCount 
+    FROM inventories i
+    JOIN products p ON i.product_id = p.id
+    WHERE ${whereString}`;
+
+    const replacementsMain = [...replacements, offsetNum, limitNum];
+    const results = await db.query(mainQuery, {
+      replacements: replacementsMain,
+      type: QueryTypes.SELECT,
+    });
+
+    const countResult = await db.query(countQuery, {
+      replacements: replacements,
+      type: QueryTypes.SELECT,
+    });
+
     const total = parseInt(countResult[0].totalCount, 10);
     const totalPages = Math.ceil(total / limitNum);
-
-    await t.commit();
     res.json({
       data: {
         items: results,
@@ -82,7 +93,6 @@ const getAllInventories = async (req, res) => {
       message: "Fetched successfully",
     });
   } catch (err) {
-    await t.rollback();
     console.error(err);
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }

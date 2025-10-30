@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getApi, postApi, deleteApi } from "../../../utils";
+import { getApi, postApi, deleteApi, formatDate } from "../../../utils";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import Button from "../../../components/ui/form/Button";
-import Card from "antd/es/card/Card";
-import Table from "../../../components/ui/data-display/Table";
 import Modal from "../../../components/ui/data-display/Modal";
 import Input from "../../../components/ui/form/Input";
 import toast from "react-hot-toast";
 import DropdownSelect from "../../../components/ui/form/DropdownSelect";
 import Swal from "sweetalert2";
 import * as Yup from "yup";
+import SearchInput from "../../../components/ui/search/SearchInput";
+import TableServerPagination from "../../../components/ui/data-display/TableServerPagination";
 
 // === Schema validate form ===
 const InventoryFormSchema = Yup.object({
@@ -24,31 +24,126 @@ const InventoryFormSchema = Yup.object({
 
 const Inventories: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const currentBranchId = searchParams.get("branch_id");
-  useEffect(() => {
-    if (!currentBranchId) {
-      navigate("/admin/inventories?branch_id=1", { replace: true });
-    }
-  }, [currentBranchId, navigate]);
-
   const handleBranchChange = (id: string) => {
     setSearchParams({ branch_id: id });
   };
+  const DEFAULTS = {
+    branch_id: "1",
+    page: 1,
+    limit: 20,
+    sortBy: "created_at",
+    sortOrder: "desc" as "asc" | "desc",
+    search: "",
+  };
+
+  const [currentBranchId, setCurrentBranchId] = useState(
+    searchParams.get("branch_id") || DEFAULTS.branch_id
+  );
+  const [page, setPage] = useState(DEFAULTS.page);
+  const [limit, setLimit] = useState(DEFAULTS.limit);
+  const [sortBy, setSortBy] = useState(DEFAULTS.sortBy);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(
+    DEFAULTS.sortOrder
+  );
+  const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const urlParams = {
+      branch_id: searchParams.get("branch_id") || DEFAULTS.branch_id,
+      page: parseInt(searchParams.get("page") || String(DEFAULTS.page), 10),
+      limit: parseInt(searchParams.get("limit") || String(DEFAULTS.limit), 10),
+      sortBy: searchParams.get("sortBy") || DEFAULTS.sortBy,
+      sortOrder:
+        (searchParams.get("sortOrder") as "asc" | "desc") || DEFAULTS.sortOrder,
+      search: searchParams.get("search") || DEFAULTS.search,
+    };
+
+    const stateParams = {
+      branch_id: currentBranchId,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      search: searchQuery,
+    };
+
+    const isUrlDifferent = Object.keys(urlParams).some(
+      (key) => (urlParams as any)[key] !== (stateParams as any)[key]
+    );
+
+    if (isUrlDifferent) {
+      setCurrentBranchId(urlParams.branch_id);
+      setPage(urlParams.page);
+      setLimit(urlParams.limit);
+      setSortBy(urlParams.sortBy);
+      setSortOrder(urlParams.sortOrder);
+      setSearchQuery(urlParams.search);
+      return;
+    }
+
+    const isMissingDefaults =
+      !searchParams.get("branch_id") ||
+      !searchParams.get("page") ||
+      !searchParams.get("limit");
+
+    if (searchParams.toString() === "" || isMissingDefaults) {
+      setSearchParams(
+        {
+          branch_id: currentBranchId,
+          page: String(page),
+          limit: String(limit),
+          sortBy: sortBy,
+          sortOrder: sortOrder,
+        },
+        { replace: true }
+      );
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    searchParams,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+    searchQuery,
+    currentBranchId,
+  ]);
 
   // === Lấy danh sách kho ===
-  const getInventories = () =>
-    getApi(`${process.env.REACT_APP_API_URL}/api/inventories`, {
+  const getInventories = () => {
+    const params: any = {
       branch_id: currentBranchId,
-    });
-  const { data: inventoriesResponse, isLoading: isInventoriesLoading } =
-    useQuery({
-      queryKey: ["inventories", currentBranchId],
-      enabled: !!currentBranchId,
-      queryFn: getInventories,
-    });
+      page,
+      limit: limit,
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+    };
+    if (searchQuery) {
+      params.search = searchQuery;
+    }
+    return getApi(`${process.env.REACT_APP_API_URL}/api/inventories`, params);
+  };
+
+  const { data: inventoriesResponse, isLoading } = useQuery({
+    queryKey: [
+      "inventories",
+      currentBranchId,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      searchQuery,
+    ],
+    enabled: !!currentBranchId,
+    queryFn: getInventories,
+  });
   const inventories = inventoriesResponse?.data.items ?? [];
+  const pagination = inventoriesResponse?.data?.pagination;
+  const total = pagination?.total ?? 0;
 
   // === Modal + form state ===
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -169,11 +264,81 @@ const Inventories: React.FC = () => {
     createInventoryMutation.mutate(formData);
   };
 
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    setSearchParams(
+      {
+        page: String(newPage),
+        limit: String(limit),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      },
+      { replace: true }
+    );
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(1);
+    setSearchParams(
+      {
+        page: "1",
+        limit: String(newLimit),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      },
+      { replace: true }
+    );
+  };
+
+  const handleSortChange = (key: string, order: "asc" | "desc") => {
+    setSortBy(key);
+    setSortOrder(order);
+    setPage(1);
+    setSearchParams(
+      {
+        page: "1",
+        limit: String(limit),
+        sortBy: key,
+        sortOrder: order,
+      },
+      { replace: true }
+    );
+  };
+  const handleSearch = () => {
+    if (!query.trim()) {
+      toast.error("Vui lòng nhập từ khóa tìm kiếm");
+      return;
+    }
+
+    setPage(1);
+
+    const newParams = {
+      branch_id: currentBranchId,
+      page: "1",
+      limit: String(limit),
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+      search: query,
+    };
+
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleClear = () => {
+    setQuery("");
+
+    const currentParams = Object.fromEntries(searchParams.entries());
+    delete currentParams.search;
+
+    setSearchParams(currentParams, { replace: true });
+  };
   // === Định nghĩa bảng ===
   const columns = [
     {
       key: "id",
       title: "ID",
+      sortable: true,
       render: (value: string) => (
         <span className="font-mono text-sm text-primary-600">#{value}</span>
       ),
@@ -198,10 +363,25 @@ const Inventories: React.FC = () => {
     {
       key: "quantity",
       title: "Tồn kho",
+      sortable: true,
       render: (value: any, item: any) => (
         <div>
           <p>{value}</p>
           <p className="text-blue-600 text-sm">Đặt: {item.reserved_stock}</p>
+        </div>
+      ),
+    },
+    {
+      key: "created_at",
+      title: "Ngày đặt hàng",
+      sortable: true,
+      render: (value: any) => (
+        <div>
+          <p className="font-medium text-gray-600">
+            <span className="font-medium text-blue-600">
+              {formatDate(value)}
+            </span>
+          </p>
         </div>
       ),
     },
@@ -249,17 +429,28 @@ const Inventories: React.FC = () => {
         </div>
         <Button onClick={() => setIsModalOpen(true)}>Tạo mới</Button>
       </div>
+      <SearchInput
+        query={query}
+        setQuery={setQuery}
+        handleSearch={handleSearch}
+        handleClear={handleClear}
+      />
+      <TableServerPagination
+        data={inventories || []}
+        columns={columns}
+        loading={isLoading}
+        emptyMessage="Không tìm thấy sản phẩm nào"
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={handlePageChange}
+        onLimitChange={handleLimitChange}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSortChange={handleSortChange}
+        preserveDataWhileLoading={true}
+      />
 
-      <Card>
-        <Table
-          data={inventories || []}
-          columns={columns}
-          loading={isInventoriesLoading}
-          emptyMessage="Không tìm thấy kho hàng nào"
-        />
-      </Card>
-
-      {/* Modal thêm kho */}
       {/* Modal thêm kho */}
       <Modal
         isOpen={isModalOpen}

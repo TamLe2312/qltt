@@ -18,7 +18,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
   setQuery,
   handleSearch,
   handleClear, // <-- Lấy prop mới
-  isSearchLoading = false,
+  isSearchLoading,
   placeholder = "Tìm kiếm...",
   validate,
   error,

@@ -24,12 +24,16 @@ const getAllBranches = async (req, res) => {
     let replacements = [];
 
     if (search) {
+      const searchTerm = `%${search}%`;
       // Thêm chuỗi điều kiện vào mảng
       // COLLATE SQL_Latin1_General_CP1_CI_AI:
       // - CI (Case-Insensitive): Không phân biệt hoa/thường
       // - AI (Accent-Insensitive): Không phân biệt dấu
-      whereClauses.push(`name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?`);
-      replacements.push(`%${search}%`);
+      whereClauses.push(`name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
+      OR email COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ? 
+      OR phone LIKE ?`);
+
+      replacements.push(searchTerm, searchTerm, searchTerm);
     }
 
     const whereString = whereClauses.join(" AND ");

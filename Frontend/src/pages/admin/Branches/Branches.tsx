@@ -25,7 +25,6 @@ const Branches: React.FC = () => {
   );
   const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
   const [query, setQuery] = useState(searchParams.get("search") || "");
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
   useEffect(() => {
     const urlParams = {
       page: parseInt(searchParams.get("page") || String(DEFAULTS.page), 10),
@@ -139,7 +138,6 @@ const Branches: React.FC = () => {
       toast.error("Vui lòng nhập từ khóa tìm kiếm");
       return;
     }
-    setIsSearchLoading(true);
     setPage(1);
 
     const newParams = {

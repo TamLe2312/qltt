@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getApi, deleteApi, postApi } from "../../../utils";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import Button from "../../../components/ui/form/Button";
@@ -12,6 +12,8 @@ import DropdownSelect from "../../../components/ui/form/DropdownSelect";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
 import * as Yup from "yup";
+import SearchInput from "../../../components/ui/search/SearchInput";
+import TableServerPagination from "../../../components/ui/data-display/TableServerPagination";
 
 // Schema validate form
 const UserFormSchema = Yup.object({
@@ -31,19 +33,94 @@ const UserFormSchema = Yup.object({
 });
 
 const Users: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const DEFAULTS = {
+    page: 1,
+    limit: 20,
+    sortBy: "created_at",
+    sortOrder: "desc" as "asc" | "desc",
+    search: "",
+  };
 
+  const [page, setPage] = useState(DEFAULTS.page);
+  const [limit, setLimit] = useState(DEFAULTS.limit);
+  const [sortBy, setSortBy] = useState(DEFAULTS.sortBy);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(
+    DEFAULTS.sortOrder
+  );
+  const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const urlParams = {
+      page: parseInt(searchParams.get("page") || String(DEFAULTS.page), 10),
+      limit: parseInt(searchParams.get("limit") || String(DEFAULTS.limit), 10),
+      sortBy: searchParams.get("sortBy") || DEFAULTS.sortBy,
+      sortOrder:
+        (searchParams.get("sortOrder") as "asc" | "desc") || DEFAULTS.sortOrder,
+      search: searchParams.get("search") || DEFAULTS.search,
+    };
+
+    const stateParams = {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      search: searchQuery,
+    };
+
+    const isUrlDifferent = Object.keys(urlParams).some(
+      (key) => (urlParams as any)[key] !== (stateParams as any)[key]
+    );
+
+    if (isUrlDifferent) {
+      setPage(urlParams.page);
+      setLimit(urlParams.limit);
+      setSortBy(urlParams.sortBy);
+      setSortOrder(urlParams.sortOrder);
+      setSearchQuery(urlParams.search);
+      return;
+    }
+
+    if (searchParams.toString() === "") {
+      setSearchParams(
+        {
+          page: String(page),
+          limit: String(limit),
+          sortBy: sortBy,
+          sortOrder: sortOrder,
+        },
+        { replace: true }
+      );
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, page, limit, sortBy, sortOrder, searchQuery]);
   // Function GET Users
-  const getUsers = () => getApi(`${process.env.REACT_APP_API_URL}/api/users`);
+  const getUsers = () => {
+    const params: any = {
+      page,
+      limit: limit,
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+    };
+    if (searchQuery) {
+      params.search = searchQuery;
+    }
+    return getApi(`${process.env.REACT_APP_API_URL}/api/users`, params);
+  };
 
   // Lấy dữ liệu từ ClientQuery
   const { data: apiResponse, isLoading } = useQuery({
-    queryKey: ["users"],
+    queryKey: ["users", page, limit, sortBy, sortOrder, searchQuery],
     queryFn: getUsers,
   });
 
   const users = apiResponse?.data.items ?? [];
+  const pagination = apiResponse?.data?.pagination;
+  const total = pagination?.total ?? 0;
 
   const getStatusColor = (status: User["status"]) => {
     switch (status) {
@@ -85,10 +162,79 @@ const Users: React.FC = () => {
     });
   };
 
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    setSearchParams(
+      {
+        page: String(newPage),
+        limit: String(limit),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      },
+      { replace: true }
+    );
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(1);
+    setSearchParams(
+      {
+        page: "1",
+        limit: String(newLimit),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      },
+      { replace: true }
+    );
+  };
+
+  const handleSortChange = (key: string, order: "asc" | "desc") => {
+    setSortBy(key);
+    setSortOrder(order);
+    setPage(1);
+    setSearchParams(
+      {
+        page: "1",
+        limit: String(limit),
+        sortBy: key,
+        sortOrder: order,
+      },
+      { replace: true }
+    );
+  };
+  const handleSearch = () => {
+    if (!query.trim()) {
+      toast.error("Vui lòng nhập từ khóa tìm kiếm");
+      return;
+    }
+
+    setPage(1);
+
+    const newParams = {
+      page: "1",
+      limit: String(limit),
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+      search: query,
+    };
+
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleClear = () => {
+    setQuery("");
+
+    const currentParams = Object.fromEntries(searchParams.entries());
+    delete currentParams.search;
+
+    setSearchParams(currentParams, { replace: true });
+  };
   const columns = [
     {
       key: "id",
       title: "ID",
+      sortable: true,
       render: (value: string) => (
         <span className="font-mono text-sm text-primary-600">#{value}</span>
       ),
@@ -96,6 +242,7 @@ const Users: React.FC = () => {
     {
       key: "full_name",
       title: "Tên",
+      sortable: true,
       render: (value: string, item: any) => (
         <div>
           <p className="font-medium text-blue-600">{value}</p>
@@ -114,16 +261,17 @@ const Users: React.FC = () => {
       ),
     },
     {
-      key: "role",
+      key: "role_id",
       title: "Vai trò",
+      sortable: true,
       render: (value: any) => (
         <div>
           <p className="font-medium text-gray-600">
-            {value === "4"
-              ? "Admin"
-              : value === "5"
-              ? "Nhân viên"
-              : "Khách hàng"}
+            {value === 1
+              ? "Quản trị"
+              : value === 2
+              ? "Khách hàng"
+              : "Nhân viên"}
           </p>
         </div>
       ),
@@ -131,6 +279,7 @@ const Users: React.FC = () => {
     {
       key: "status",
       title: "Trạng thái",
+      sortable: true,
       render: (value: any) => (
         <div>
           <span
@@ -141,6 +290,16 @@ const Users: React.FC = () => {
             {value.charAt(0).toUpperCase() + value.slice(1)}
           </span>
         </div>
+      ),
+    },
+    {
+      key: "created_at",
+      title: "Ngày tạo",
+      sortable: true,
+      render: (value: string) => (
+        <span className="text-sm text-gray-600">
+          {value ? new Date(value).toLocaleDateString("vi-VN") : "-"}
+        </span>
       ),
     },
     {
@@ -251,16 +410,27 @@ const Users: React.FC = () => {
         </div>
         <Button onClick={() => setIsModalOpen(true)}>Tạo mới</Button>
       </div>
-
-      {/* Users Table */}
-      <Card>
-        <Table
-          data={users || []}
-          columns={columns}
-          loading={isLoading}
-          emptyMessage="Không có người dùng nào"
-        />
-      </Card>
+      <SearchInput
+        query={query}
+        setQuery={setQuery}
+        handleSearch={handleSearch}
+        handleClear={handleClear}
+      />
+      <TableServerPagination
+        data={users || []}
+        columns={columns}
+        loading={isLoading}
+        emptyMessage="Không tìm thấy người dùng nào"
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={handlePageChange}
+        onLimitChange={handleLimitChange}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSortChange={handleSortChange}
+        preserveDataWhileLoading={true}
+      />
 
       {/* Modal */}
       <Modal

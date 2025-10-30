@@ -48,7 +48,6 @@ const Suppliers: React.FC = () => {
   );
   const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
   const [query, setQuery] = useState("");
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -267,7 +266,6 @@ const Suppliers: React.FC = () => {
       return;
     }
 
-    setIsSearchLoading(true);
     setPage(1);
 
     const newParams = {

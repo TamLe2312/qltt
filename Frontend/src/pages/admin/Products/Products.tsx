@@ -1,29 +1,104 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Swal, { SweetAlertResult } from "sweetalert2";
 import { deleteApi, getApi } from "../../../utils";
 import { Product } from "../../../types";
-import Card from "../../../components/ui/data-display/Card";
-import Table from "../../../components/ui/data-display/Table";
 import Button from "../../../components/ui/form/Button";
+import TableServerPagination from "../../../components/ui/data-display/TableServerPagination";
+import SearchInput from "../../../components/ui/search/SearchInput";
+import toast from "react-hot-toast";
 
 const Products: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const DEFAULTS = {
+    page: 1,
+    limit: 20,
+    sortBy: "created_at",
+    sortOrder: "desc" as "asc" | "desc",
+    search: "",
+  };
+
+  const [page, setPage] = useState(DEFAULTS.page);
+  const [limit, setLimit] = useState(DEFAULTS.limit);
+  const [sortBy, setSortBy] = useState(DEFAULTS.sortBy);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(
+    DEFAULTS.sortOrder
+  );
+  const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const urlParams = {
+      page: parseInt(searchParams.get("page") || String(DEFAULTS.page), 10),
+      limit: parseInt(searchParams.get("limit") || String(DEFAULTS.limit), 10),
+      sortBy: searchParams.get("sortBy") || DEFAULTS.sortBy,
+      sortOrder:
+        (searchParams.get("sortOrder") as "asc" | "desc") || DEFAULTS.sortOrder,
+      search: searchParams.get("search") || DEFAULTS.search,
+    };
+
+    const stateParams = {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      search: searchQuery,
+    };
+
+    const isUrlDifferent = Object.keys(urlParams).some(
+      (key) => (urlParams as any)[key] !== (stateParams as any)[key]
+    );
+
+    if (isUrlDifferent) {
+      setPage(urlParams.page);
+      setLimit(urlParams.limit);
+      setSortBy(urlParams.sortBy);
+      setSortOrder(urlParams.sortOrder);
+      setSearchQuery(urlParams.search);
+      return;
+    }
+
+    if (searchParams.toString() === "") {
+      setSearchParams(
+        {
+          page: String(page),
+          limit: String(limit),
+          sortBy: sortBy,
+          sortOrder: sortOrder,
+        },
+        { replace: true }
+      );
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, page, limit, sortBy, sortOrder, searchQuery]);
   // Function GET Products
-  const getProducts = () =>
-    getApi(`${process.env.REACT_APP_API_URL}/api/products`);
+  const getProducts = () => {
+    const params: any = {
+      page,
+      limit: limit,
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+    };
+    if (searchQuery) {
+      params.search = searchQuery;
+    }
+    return getApi(`${process.env.REACT_APP_API_URL}/api/products`, params);
+  };
 
   // Lấy dữ liệu từ React Query
   const { data: apiResponse, isLoading } = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products", page, limit, sortBy, sortOrder, searchQuery],
     queryFn: getProducts,
   });
 
   const products = apiResponse?.data.items ?? [];
-
+  const pagination = apiResponse?.data?.pagination;
+  const total = pagination?.total ?? 0;
   // Hàm gọi API xoá
   const deleteProduct = async (id: string | number) => {
     return deleteApi(
@@ -60,11 +135,81 @@ const Products: React.FC = () => {
     });
   };
 
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    setSearchParams(
+      {
+        page: String(newPage),
+        limit: String(limit),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      },
+      { replace: true }
+    );
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(1);
+    setSearchParams(
+      {
+        page: "1",
+        limit: String(newLimit),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      },
+      { replace: true }
+    );
+  };
+
+  const handleSortChange = (key: string, order: "asc" | "desc") => {
+    setSortBy(key);
+    setSortOrder(order);
+    setPage(1);
+    setSearchParams(
+      {
+        page: "1",
+        limit: String(limit),
+        sortBy: key,
+        sortOrder: order,
+      },
+      { replace: true }
+    );
+  };
+  const handleSearch = () => {
+    if (!query.trim()) {
+      toast.error("Vui lòng nhập từ khóa tìm kiếm");
+      return;
+    }
+
+    setPage(1);
+
+    const newParams = {
+      page: "1",
+      limit: String(limit),
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+      search: query,
+    };
+
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleClear = () => {
+    setQuery("");
+
+    const currentParams = Object.fromEntries(searchParams.entries());
+    delete currentParams.search;
+
+    setSearchParams(currentParams, { replace: true });
+  };
+
   // Định nghĩa giao diện bảng Products
   const columns = [
     {
       key: "id",
       title: "ID người dùng",
+      sortable: true,
       render: (value: string) => (
         <span className="font-mono text-sm text-primary-600">#{value}</span>
       ),
@@ -93,6 +238,7 @@ const Products: React.FC = () => {
     {
       key: "sku",
       title: "SKU",
+      sortable: true,
       render: (value: string) => (
         <span className="font-mono text-sm text-primary-600">{value}</span>
       ),
@@ -100,6 +246,7 @@ const Products: React.FC = () => {
     {
       key: "name",
       title: "Tên sản phẩm",
+      sortable: true,
       render: (value: string) => (
         <div>
           <p className="font-medium text-gray-600">{value}</p>
@@ -118,10 +265,21 @@ const Products: React.FC = () => {
     {
       key: "price",
       title: "Giá",
+      sortable: true,
       render: (value: string) => (
         <div>
           <p className="font-medium text-gray-600">{value}</p>
         </div>
+      ),
+    },
+    {
+      key: "created_at",
+      title: "Ngày tạo",
+      sortable: true,
+      render: (value: string) => (
+        <span className="text-sm text-gray-600">
+          {value ? new Date(value).toLocaleDateString("vi-VN") : "-"}
+        </span>
       ),
     },
     {
@@ -159,16 +317,27 @@ const Products: React.FC = () => {
           </Button>
         </div>
       </div>
-
-      {/* Products Table */}
-      <Card>
-        <Table
-          data={products || []}
-          columns={columns}
-          loading={isLoading}
-          emptyMessage="Không có sản phẩm nào"
-        />
-      </Card>
+      <SearchInput
+        query={query}
+        setQuery={setQuery}
+        handleSearch={handleSearch}
+        handleClear={handleClear}
+      />
+      <TableServerPagination
+        data={products || []}
+        columns={columns}
+        loading={isLoading}
+        emptyMessage="Không tìm thấy sản phẩm nào"
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={handlePageChange}
+        onLimitChange={handleLimitChange}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSortChange={handleSortChange}
+        preserveDataWhileLoading={true}
+      />
     </div>
   );
 };
