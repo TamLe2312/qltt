@@ -62,6 +62,9 @@ const Home: React.FC = () => {
             </p>
           </div>
         )}
+        <button className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+          Logout
+        </button>
       </div>
 
       {/* Admin Link */}

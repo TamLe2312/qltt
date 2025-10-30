@@ -122,7 +122,7 @@ const TableCategory: React.FC<TableCategoryProps> = ({
                       )}
                       {item.product_count > 0 ? (
                         <Link
-                          to={`/admin/products?page=1&limit=20&sortBy=created_at&sortOrder=desc&search=${item.name}`}
+                          to={`/admin/products?page=1&limit=20&sortBy=created_at&sortOrder=desc&category=${item.name}`}
                           onClick={(e) => e.stopPropagation()}
                           className={`${
                             level === 0

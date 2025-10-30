@@ -21,6 +21,7 @@ const Products: React.FC = () => {
     sortBy: "created_at",
     sortOrder: "desc" as "asc" | "desc",
     search: "",
+    category: "",
   };
 
   const [page, setPage] = useState(DEFAULTS.page);
@@ -30,6 +31,7 @@ const Products: React.FC = () => {
     DEFAULTS.sortOrder
   );
   const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
+  const [category, setCategory] = useState(DEFAULTS.category);
   const [query, setQuery] = useState("");
   useEffect(() => {
     const urlParams = {
@@ -39,6 +41,7 @@ const Products: React.FC = () => {
       sortOrder:
         (searchParams.get("sortOrder") as "asc" | "desc") || DEFAULTS.sortOrder,
       search: searchParams.get("search") || DEFAULTS.search,
+      category: searchParams.get("category") || DEFAULTS.category,
     };
 
     const stateParams = {
@@ -47,6 +50,7 @@ const Products: React.FC = () => {
       sortBy,
       sortOrder,
       search: searchQuery,
+      category,
     };
 
     const isUrlDifferent = Object.keys(urlParams).some(
@@ -59,6 +63,7 @@ const Products: React.FC = () => {
       setSortBy(urlParams.sortBy);
       setSortOrder(urlParams.sortOrder);
       setSearchQuery(urlParams.search);
+      setCategory(urlParams.category);
       return;
     }
 
@@ -87,12 +92,23 @@ const Products: React.FC = () => {
     if (searchQuery) {
       params.search = searchQuery;
     }
+    if (category) {
+      params.category = category;
+    }
     return getApi(`${process.env.REACT_APP_API_URL}/api/products`, params);
   };
 
   // Lấy dữ liệu từ React Query
   const { data: apiResponse, isLoading } = useQuery({
-    queryKey: ["products", page, limit, sortBy, sortOrder, searchQuery],
+    queryKey: [
+      "products",
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      searchQuery,
+      category,
+    ],
     queryFn: getProducts,
   });
 
@@ -183,16 +199,10 @@ const Products: React.FC = () => {
     }
 
     setPage(1);
+    const currentParams = Object.fromEntries(searchParams.entries());
+    currentParams.search = query;
 
-    const newParams = {
-      page: "1",
-      limit: String(limit),
-      sortBy: sortBy,
-      sortOrder: sortOrder,
-      search: query,
-    };
-
-    setSearchParams(newParams, { replace: true });
+    setSearchParams(currentParams, { replace: true });
   };
 
   const handleClear = () => {
@@ -208,7 +218,7 @@ const Products: React.FC = () => {
   const columns = [
     {
       key: "id",
-      title: "ID người dùng",
+      title: "ID",
       sortable: true,
       render: (value: string) => (
         <span className="font-mono text-sm text-primary-600">#{value}</span>
@@ -216,7 +226,7 @@ const Products: React.FC = () => {
     },
     {
       key: "avatar",
-      title: "Ảnh đại diện",
+      title: "Ảnh",
       render: (value: string, item: Product) => (
         <div className="flex items-center">
           {item.avatar ? (
