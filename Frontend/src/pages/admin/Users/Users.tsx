@@ -11,6 +11,7 @@ import DropdownSelect from '../../../components/ui/form/DropdownSelect';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import * as Yup from "yup";
+import Card from '../../../components/ui/data-display/Card';
 
 // Schema validate form
 const UserFormSchema = Yup.object({
@@ -241,6 +242,13 @@ const Users: React.FC = () => {
                     <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => navigate(`/admin/orders?user_id=${item.id}`)}
+                    >
+                        Đơn hàng
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
                         className="text-red-600 border-red-600 hover:bg-red-50"
                         onClick={() => confirmDelete(item.id)}
                     >
@@ -343,21 +351,23 @@ const Users: React.FC = () => {
             </div>
 
             {/* Users Table */}
-            <TableServerPagination
-                data={users}
-                columns={columns}
-                loading={isLoading}
-                emptyMessage="Không tìm thấy người dùng nào"
-                page={page}
-                pageSize={pageSize}
-                total={total}
-                onPageChange={handlePageChange}
-                onPageSizeChange={handlePageSizeChange}
-                sortKey={sortKey}
-                sortOrder={sortOrder}
-                onSortChange={handleSortChange}
-                preserveDataWhileLoading={true}
-            />
+            <Card>
+                <TableServerPagination
+                    data={users}
+                    columns={columns}
+                    loading={isLoading}
+                    emptyMessage="Không tìm thấy người dùng nào"
+                    page={page}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={handlePageChange}
+                    onPageSizeChange={handlePageSizeChange}
+                    sortKey={sortKey}
+                    sortOrder={sortOrder}
+                    onSortChange={handleSortChange}
+                    preserveDataWhileLoading={true}
+                />
+            </Card>
 
             {/* Modal */}
             <Modal

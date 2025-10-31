@@ -254,6 +254,21 @@ const Categories: React.FC = () => {
     const columns: TableColumn<CategoryNode>[] = [
         { key: "id", label: "ID", width: "80px" },
         { key: "name", label: "Tên danh mục" },
+        {
+            key: "actions",
+            label: "Chi tiết",
+            render: (item: CategoryNode) => (
+                <div className="flex justify-start">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/admin/products?category_id=${item.id}`)}
+                    >
+                        Sản phẩm
+                    </Button>
+                </div>
+            ),
+        },
     ];
 
     return (

@@ -6,6 +6,7 @@ import Button from '../../../components/ui/form/Button';
 import Input from '../../../components/ui/form/Input';
 import TableServerPagination from '../../../components/ui/data-display/TableServerPagination';
 import toast from 'react-hot-toast';
+import { Branch } from '../../../types';
 
 const Branches: React.FC = () => {
     const navigate = useNavigate();
@@ -182,6 +183,28 @@ const Branches: React.FC = () => {
                 <span className="text-sm text-gray-600">
                     {value ? new Date(value).toLocaleDateString('vi-VN') : '-'}
                 </span>
+            ),
+        },
+        {
+            key: 'actions',
+            title: 'Hành động',
+            render: (value: any, item: Branch) => (
+                <div className="flex items-center space-x-2">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/admin/orders?branch_id=${item.id}`)}
+                    >
+                        Đơn hàng
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/admin/inventories?branch_id=${item.id}`)}
+                    >
+                        Sản phẩm
+                    </Button>
+                </div>
             ),
         },
     ]

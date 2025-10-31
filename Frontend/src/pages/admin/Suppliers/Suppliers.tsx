@@ -365,11 +365,11 @@ const Suppliers: React.FC = () => {
             </div>
 
             {/* ================== SEARCH SECTION ================== */}
-            <SearchInput
+            {/* <SearchInput
                 searchQuery={query}
                 setSearchQuery={setQuery}
                 handleSearch={handleSearch}
-            />
+            /> */}
 
             {/* ================== TABLE SECTION ================== */}
             <TableServerPagination

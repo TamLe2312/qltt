@@ -1,63 +1,14 @@
 const { pool } = require("../config/db.js");
 const handlePgError = require("../middlewares/handlePgError.js");
 
-// const getAllOrders = async (req, res) => {
-//   try {
-//     let { page = 1, page_size: limit = 20, sort_field: sortField = 'created_at', sort_order: sortOrder = 'desc' } = req.query;
-//     limit = parseInt(limit, 10);
-//     page = parseInt(page, 10);
-//     const offset = (page - 1) * limit;
 
-//     // ✅ Danh sách cột được phép sắp xếp để chống SQL injection
-//     const allowedSortFields = ['id', 'order_code', 'user_id', 'branch_id', 'status', 'total_amount', 'created_at', 'updated_at'];
-//     if (!allowedSortFields.includes(sortField)) sortField = 'created_at';
-//     sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-
-//     // ✅ Lấy danh sách đơn hàng
-//     const result = await pool.query(
-//       `
-//       SELECT o.*, u.full_name AS user_name, b.name AS branch_name
-//       FROM orders o
-//       LEFT JOIN users u ON o.user_id = u.id
-//       LEFT JOIN branches b ON o.branch_id = b.id
-//       ORDER BY ${sortField} ${sortOrder}
-//       LIMIT $1 OFFSET $2
-//       `,
-//       [limit, offset]
-//     );
-
-//     // ✅ Lấy tổng số bản ghi
-//     const totalResult = await pool.query(`SELECT COUNT(*) AS total FROM orders`);
-//     const total = parseInt(totalResult.rows[0].total, 10);
-//     const totalPages = Math.ceil(total / limit);
-
-//     // ✅ Trả kết quả
-//     res.json({
-//       data: {
-//         items: result.rows,
-//         pagination: {
-//           total,
-//           page,
-//           perPage: limit,
-//           totalPages,
-//         },
-//         sort: {
-//           field: sortField,
-//           order: sortOrder,
-//         },
-//       },
-//       status: "success",
-//       message: "Fetched successfully",
-//     });
-//   } catch (err) {
-//     handlePgError(err, res);
-//   }
-// };
-
-// =======================
-// ✅ CONTROLLER: getAllOrders (tìm kiếm + phân trang + sắp xếp)
-// =======================
-
+// ============================================================
+// Controller: getAllOrders
+// Lọc theo chi nhánh + trạng thái + tìm kiếm
+// ============================================================
+// ============================
+// FILE: ordersController.js
+// ============================
 const getAllOrders = async (req, res) => {
   try {
     let {
@@ -66,58 +17,87 @@ const getAllOrders = async (req, res) => {
       sort_field: sortField = 'created_at',
       sort_order: sortOrder = 'desc',
       search = '',
+      status = '',
+      branch_id = '',
+      user_id = '', // ✅ thêm user_id
     } = req.query;
 
     limit = parseInt(limit, 10);
     page = parseInt(page, 10);
     const offset = (page - 1) * limit;
 
-    const allowedSortFields = [
-      'id',
-      'order_code',
-      'user_id',
-      'branch_id',
-      'status',
-      'total_amount',
-      'created_at',
-      'updated_at',
-    ];
+    const allowedSortFields = ['id', 'order_code', 'status', 'total_amount', 'created_at', 'updated_at'];
     if (!allowedSortFields.includes(sortField)) sortField = 'created_at';
     sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-    // ✅ Điều kiện tìm kiếm (hỗ trợ tiếng Việt có dấu)
-    const searchCondition = search
-      ? `WHERE unaccent(o.order_code) ILIKE unaccent($3)
-     OR unaccent(u.full_name) ILIKE unaccent($3)
-     OR unaccent(b.name) ILIKE unaccent($3)`
-      : '';
-    const searchValue = `%${search}%`;
+    const filters = ['orders.deleted_at IS NULL'];
+    const params = [];
+    let paramIndex = 1;
 
-    // ✅ Query lấy danh sách đơn hàng
-    const queryParams = search ? [limit, offset, searchValue] : [limit, offset];
+    // Tìm kiếm
+    if (search) {
+      filters.push(`
+        (
+          unaccent(orders.order_code) ILIKE unaccent($${paramIndex})
+          OR unaccent(users.full_name) ILIKE unaccent($${paramIndex})
+          OR unaccent(branches.name) ILIKE unaccent($${paramIndex})
+        )
+      `);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Lọc theo trạng thái
+    if (status) {
+      filters.push(`orders.status = $${paramIndex}`);
+      params.push(status);
+      paramIndex++;
+    }
+
+    // Lọc theo chi nhánh
+    if (branch_id) {
+      const branchIdNum = parseInt(branch_id, 10);
+      if (!isNaN(branchIdNum)) {
+        filters.push(`orders.branch_id = $${paramIndex}`);
+        params.push(branchIdNum);
+        paramIndex++;
+      }
+    }
+
+    // ✅ Lọc theo user
+    if (user_id) {
+      const userIdNum = parseInt(user_id, 10);
+      if (!isNaN(userIdNum)) {
+        filters.push(`orders.user_id = $${paramIndex}`);
+        params.push(userIdNum);
+        paramIndex++;
+      }
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
     const query = `
-      SELECT o.*, u.full_name AS user_name, b.name AS branch_name
-      FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN branches b ON o.branch_id = b.id
-      ${searchCondition}
-      ORDER BY ${sortField} ${sortOrder}
-      LIMIT $1 OFFSET $2
+      SELECT 
+        orders.*,
+        users.full_name AS user_name,
+        branches.name AS branch_name
+      FROM orders
+      LEFT JOIN users ON orders.user_id = users.id
+      LEFT JOIN branches ON orders.branch_id = branches.id
+      ${whereClause}
+      ORDER BY orders.${sortField} ${sortOrder}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    const result = await pool.query(query, queryParams);
+    const result = await pool.query(query, [...params, limit, offset]);
 
-    // ✅ Query đếm tổng (chú ý lại số thứ tự tham số)
     const totalQuery = `
       SELECT COUNT(*) AS total
-      FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN branches b ON o.branch_id = b.id
-      ${search ? `WHERE unaccent(o.order_code) ILIKE unaccent($1)
-              OR unaccent(u.full_name) ILIKE unaccent($1)
-              OR unaccent(b.name) ILIKE unaccent($1)` : ''}
+      FROM orders
+      LEFT JOIN users ON orders.user_id = users.id
+      LEFT JOIN branches ON orders.branch_id = branches.id
+      ${whereClause}
     `;
-    const totalParams = search ? [searchValue] : [];
-    const totalResult = await pool.query(totalQuery, totalParams);
+    const totalResult = await pool.query(totalQuery, params);
 
     const total = parseInt(totalResult.rows[0].total, 10);
     const totalPages = Math.ceil(total / limit);
@@ -137,37 +117,7 @@ const getAllOrders = async (req, res) => {
   }
 };
 
-// const getOrdersStatistics = async (req, res) => {
-//   try {
-//     let { filters = {}, groupBy = 'month' } = req.body;
 
-//     // ✅ Kiểm tra groupBy hợp lệ
-//     const validGroups = ['day', 'month', 'quarter', 'year'];
-//     if (!validGroups.includes(groupBy)) {
-//       return res.status(400).json({
-//         status: "error",
-//         message: 'groupBy must be one of: day, month, quarter, year'
-//       });
-//     }
-
-//     // ✅ Log SQL trước khi thực thi
-//     const sql = `SELECT * FROM get_orders_statistics($1::jsonb, $2::text)`;
-//     console.log("SQL to execute:", sql);
-//     console.log("Parameters:", { filters, groupBy });
-
-//     // ✅ Thực thi query
-//     const result = await pool.query(sql, [filters, groupBy]);
-
-//     // ✅ Trả kết quả, list rỗng cũng trả 200 để phù hợp với convention
-//     res.json({
-//       data: { items: result.rows },
-//       status: "success",
-//       message: result.rows.length ? "Fetched successfully" : "No statistics found"
-//     });
-//   } catch (err) {
-//     handlePgError(err, res);
-//   }
-// };
 
 const getOrdersStatistics = async (req, res) => {
   try {

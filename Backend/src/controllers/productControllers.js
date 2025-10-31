@@ -2,42 +2,122 @@ const { pool } = require("../config/db.js");
 const handlePgError = require("../middlewares/handlePgError.js");
 const { deleteImages } = require("../middlewares/multerConfig.js");
 
+// ============================================================
+// Lấy danh sách sản phẩm có phân trang, tìm kiếm, lọc, sắp xếp
+// ============================================================
 const getAllProducts = async (req, res) => {
   try {
-    let { page = 1, page_size: limit = 20, sort_field: sortField = 'created_at', sort_order: sortOrder = 'desc' } = req.query;
+    // ============================================================
+    // 1. Nhận & chuẩn hóa tham số từ query string
+    // ============================================================
+    let {
+      page = 1,
+      page_size: limit = 20,
+      sort_field: sortField = 'created_at',
+      sort_order: sortOrder = 'desc',
+      search = '',
+      category_id,
+    } = req.query;
+
+    limit = parseInt(limit, 10);
+    page = parseInt(page, 10);
     const offset = (page - 1) * limit;
 
-    const result = await pool.query(
-      `SELECT *
-       FROM products
-       WHERE products.deleted_at IS NULL
-       ORDER BY ${sortField} ${sortOrder === 'desc' ? 'DESC' : 'ASC'}
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    );
+    // ============================================================
+    // 2. Xác định cột sắp xếp hợp lệ
+    // ============================================================
+    const allowedSortFields = [
+      'id',
+      'name',
+      'sku',
+      'price',
+      'created_at',
+      'updated_at',
+      'category_name',
+    ];
 
-    const totalResult = await pool.query(`SELECT COUNT(*) AS total FROM products`);
+    let sortColumn;
+    if (sortField === 'category_name') sortColumn = 'categories.name';
+    else if (allowedSortFields.includes(sortField))
+      sortColumn = `products.${sortField}`;
+    else sortColumn = 'products.created_at';
+
+    sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    // ============================================================
+    // 3. Tạo bộ lọc WHERE động
+    // ============================================================
+    const filters = [`products.deleted_at IS NULL`];
+    const params = [];
+    let paramIndex = 1;
+
+    // -- Tìm kiếm (theo tên, mã SKU, tên danh mục)
+    if (search) {
+      filters.push(`
+        (
+          unaccent(products.name) ILIKE unaccent($${paramIndex})
+          OR unaccent(products.sku) ILIKE unaccent($${paramIndex})
+          OR unaccent(categories.name) ILIKE unaccent($${paramIndex})
+        )
+      `);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // -- Lọc theo danh mục
+    if (category_id) {
+      filters.push(`products.category_id = $${paramIndex}`);
+      params.push(category_id);
+      paramIndex++;
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    // ============================================================
+    // 4. Truy vấn dữ liệu chính (danh sách sản phẩm)
+    // ============================================================
+    const query = `
+      SELECT products.*, categories.name AS category_name
+      FROM products
+      LEFT JOIN categories ON products.category_id = categories.id
+      ${whereClause}
+      ORDER BY ${sortColumn} ${sortOrder}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    const result = await pool.query(query, [...params, limit, offset]);
+
+    // ============================================================
+    // 5. Truy vấn tổng số bản ghi (phục vụ phân trang)
+    // ============================================================
+    const totalQuery = `
+      SELECT COUNT(*) AS total
+      FROM products
+      LEFT JOIN categories ON products.category_id = categories.id
+      ${whereClause}
+    `;
+    const totalResult = await pool.query(totalQuery, params);
+
     const total = parseInt(totalResult.rows[0].total, 10);
     const totalPages = Math.ceil(total / limit);
 
+    // ============================================================
+    // 6. Trả kết quả về client
+    // ============================================================
     res.json({
       data: {
         items: result.rows,
-        pagination: {
-          total,
-          page,
-          perPage: limit,
-          totalPages,
-        },
-        sort: {
-          field: sortField,
-          order: sortOrder,
-        },
+        pagination: { total, page, perPage: limit, totalPages },
+        sort: { field: sortField, order: sortOrder },
       },
-      status: "success",
-      message: "Fetched successfully",
+      status: 'success',
+      message: 'Fetched successfully',
     });
   } catch (err) {
+    // ============================================================
+    // 7. Xử lý lỗi
+    // ============================================================
+    console.error('Error fetching products:', err);
     handlePgError(err, res);
   }
 };

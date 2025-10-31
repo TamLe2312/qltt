@@ -1,40 +1,15 @@
 const { pool } = require("../config/db.js");
 const handlePgError = require("../middlewares/handlePgError.js");
 
-// const getAllInventories = async (req, res) => {
-//   try {
-//     const { limit, page, sortBy, sortOrder } = req.query;
-//     const offset = page && limit ? (page - 1) * limit : 0;
-//     const results = await pool.query(
-//       `
-//         SELECT i.id, p.id AS product_id, p.name AS product_name, p.sku, s.id AS supplier_id, s.name AS supplier_name, i.quantity, i.reserved_stock, b.id AS branch_id, b.name AS branch_name
-//         FROM inventories i
-//         JOIN products p ON i.product_id = p.id
-//         JOIN suppliers s ON i.supplier_id = s.id
-//         JOIN branches b ON i.branch_id = b.id
-//         ORDER BY ${sortBy || "i.id"} ${sortOrder === "desc" ? "DESC" : "ASC"}
-//         LIMIT $1 OFFSET $2
-//         `,
-//       [limit || 20, offset]
-//     );
-//     const countResult = await pool.query("SELECT COUNT(*) FROM inventories;");
-//     res.json({ data: results.rows, total: countResult.rows[0].count });
-//   } catch (error) {
-//     handlePgError(error, res);
-//   }
-// };
 
+// === Server: getAllInventories (backend) ===
 const getAllInventories = async (req, res) => {
   try {
-    let { page = 1, page_size: limit = 20, sort_field: sortField = 'created_at', sort_order: sortOrder = 'desc' } = req.query;
+    let { page = 1, page_size: limit = 20, sort_field: sortField = 'created_at', sort_order: sortOrder = 'desc', search = '', branch_id = '' } = req.query;
     limit = parseInt(limit, 10);
     page = parseInt(page, 10);
     const offset = (page - 1) * limit;
 
-    console.log("Query params:", req.query);
-    console.log("Limit:", limit, "Page:", page, "Offset:", offset);
-
-    // Mapping client sortField sang tên cột thực tế trong DB
     const sortFieldMap = {
       id: 'i.id',
       product_name: 'p.name',
@@ -48,28 +23,62 @@ const getAllInventories = async (req, res) => {
     const dbSortField = sortFieldMap[sortField] ?? sortFieldMap['created_at'];
     sortOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
+    const filters = ['i.deleted_at IS NULL'];
+    const params = [];
+    let paramIndex = 1;
+
+    if (search) {
+      filters.push(`
+                (
+                    unaccent(p.name) ILIKE unaccent($${paramIndex})
+                    OR unaccent(s.name) ILIKE unaccent($${paramIndex})
+                    OR unaccent(b.name) ILIKE unaccent($${paramIndex})
+                )
+            `);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    if (branch_id) {
+      const branchIdNum = parseInt(branch_id, 10);
+      if (!isNaN(branchIdNum)) {
+        filters.push(`i.branch_id = $${paramIndex}`);
+        params.push(branchIdNum);
+        paramIndex++;
+      }
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
     const result = await pool.query(
       `
-      SELECT 
-        i.id, i.status, 
-        p.id AS product_id, p.name AS product_name, p.sku, 
-        s.id AS supplier_id, s.name AS supplier_name, 
-        i.quantity, i.reserved_stock, 
-        b.id AS branch_id, b.name AS branch_name
-      FROM inventories i
-      JOIN products p ON i.product_id = p.id
-      JOIN suppliers s ON i.supplier_id = s.id
-      JOIN branches b ON i.branch_id = b.id
-      WHERE i.deleted_at IS NULL
-      ORDER BY ${dbSortField} ${sortOrder}
-      LIMIT $1 OFFSET $2
-      `,
-      [limit, offset]
+            SELECT 
+                i.id, i.status, 
+                p.id AS product_id, p.name AS product_name, p.sku, 
+                s.id AS supplier_id, s.name AS supplier_name, 
+                i.quantity, i.reserved_stock, 
+                b.id AS branch_id, b.name AS branch_name
+            FROM inventories i
+            JOIN products p ON i.product_id = p.id
+            JOIN suppliers s ON i.supplier_id = s.id
+            JOIN branches b ON i.branch_id = b.id
+            ${whereClause}
+            ORDER BY ${dbSortField} ${sortOrder}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+            `,
+      [...params, limit, offset]
     );
 
-    const totalResult = await pool.query(`SELECT COUNT(*) AS total FROM inventories`);
+    const totalQuery = `
+            SELECT COUNT(*) AS total
+            FROM inventories i
+            JOIN products p ON i.product_id = p.id
+            JOIN suppliers s ON i.supplier_id = s.id
+            JOIN branches b ON i.branch_id = b.id
+            ${whereClause}
+        `;
+    const totalResult = await pool.query(totalQuery, params);
     const total = parseInt(totalResult.rows[0].total, 10);
-    const totalPages = Math.ceil(total / limit);
 
     res.json({
       data: {
@@ -78,7 +87,7 @@ const getAllInventories = async (req, res) => {
           total,
           page,
           perPage: limit,
-          totalPages,
+          totalPages: Math.ceil(total / limit),
         },
         sort: {
           field: sortField,

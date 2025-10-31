@@ -1,14 +1,21 @@
+// ============================
+// FILE: Orders.tsx
+// ============================
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { formatDate, getApi } from '../../../utils';
+import { getApi, formatDate } from '../../../utils';
 import { Order } from '../../../types';
-import Button from '../../../components/ui/form/Button';
 import Card from '../../../components/ui/data-display/Card';
+import Button from '../../../components/ui/form/Button';
 import TableServerPagination from '../../../components/ui/data-display/TableServerPagination';
 import SearchInput from '../../../components/ui/search/SearchInput';
-import toast from "react-hot-toast";
+import DropdownSelect from '../../../components/ui/form/DropdownSelect';
+import toast from 'react-hot-toast';
 
+// ============================================================
+// COMPONENT: Orders
+// ============================================================
 const Orders: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -21,19 +28,38 @@ const Orders: React.FC = () => {
         search: '',
     };
 
-    // ========================
-    // STATE
-    // ========================
+    // ============================================================
+    // State
+    // ============================================================
     const [page, setPage] = useState(DEFAULTS.page);
     const [pageSize, setPageSize] = useState(DEFAULTS.pageSize);
     const [sortKey, setSortKey] = useState(DEFAULTS.sortKey);
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(DEFAULTS.sortOrder);
     const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
-    const [appliedSearch, setAppliedSearch] = useState(DEFAULTS.search); // ✅ chỉ fetch khi nhấn tìm kiếm
+    const [appliedSearch, setAppliedSearch] = useState(DEFAULTS.search);
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+    const [selectedUser, setSelectedUser] = useState<string | null>(null); // ✅ filter user
 
-    // ========================
-    // URL SYNC
-    // ========================
+    // ============================================================
+    // Danh sách trạng thái
+    // ============================================================
+    const statusOptions = [
+        { id: 'pending', name: 'Chờ xác nhận' },
+        { id: 'confirmed', name: 'Đã xác nhận' },
+        { id: 'processing', name: 'Đang xử lý' },
+        { id: 'shipped', name: 'Đã giao' },
+        { id: 'delivered', name: 'Đã giao hàng' },
+        { id: 'completed', name: 'Hoàn tất' },
+        { id: 'canceled', name: 'Đã hủy' },
+        { id: 'failed', name: 'Thất bại' },
+        { id: 'refunded', name: 'Đã hoàn tiền' },
+    ];
+
+    // ============================================================
+    // Đồng bộ giữa URL ↔ state
+    // ============================================================
     useEffect(() => {
         const urlParams = {
             page: parseInt(searchParams.get('page') || String(DEFAULTS.page), 10),
@@ -41,21 +67,36 @@ const Orders: React.FC = () => {
             sortKey: searchParams.get('sort_field') || DEFAULTS.sortKey,
             sortOrder: (searchParams.get('sort_order') as 'asc' | 'desc') || DEFAULTS.sortOrder,
             search: searchParams.get('search') || DEFAULTS.search,
+            status: searchParams.get('status') || null,
+            branch_id: searchParams.get('branch_id') || null,
+            user_id: searchParams.get('user_id') || null,
         };
 
-        const stateParams = { page, pageSize, sortKey, sortOrder, search: appliedSearch };
+        const stateParams = {
+            page,
+            pageSize,
+            sortKey,
+            sortOrder,
+            search: appliedSearch,
+            status: selectedStatus,
+            branch_id: selectedBranch,
+            user_id: selectedUser,
+        };
 
-        const isUrlDifferent = Object.keys(urlParams).some(
+        const isDifferent = Object.keys(urlParams).some(
             (key) => (urlParams as any)[key] !== (stateParams as any)[key]
         );
 
-        if (isUrlDifferent) {
+        if (isDifferent) {
             setPage(urlParams.page);
             setPageSize(urlParams.pageSize);
             setSortKey(urlParams.sortKey);
             setSortOrder(urlParams.sortOrder);
             setAppliedSearch(urlParams.search);
             setSearchQuery(urlParams.search);
+            setSelectedStatus(urlParams.status);
+            setSelectedBranch(urlParams.branch_id);
+            setSelectedUser(urlParams.user_id);
             return;
         }
 
@@ -70,12 +111,11 @@ const Orders: React.FC = () => {
                 { replace: true }
             );
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams, page, pageSize, sortKey, sortOrder, appliedSearch]);
+    }, [searchParams, page, pageSize, sortKey, sortOrder, appliedSearch, selectedStatus, selectedBranch, selectedUser]);
 
-    // ========================
-    // API FETCH FUNCTION
-    // ========================
+    // ============================================================
+    // API: Lấy danh sách đơn hàng
+    // ============================================================
     const getOrders = async () => {
         const params: any = {
             page,
@@ -84,179 +124,139 @@ const Orders: React.FC = () => {
             sort_order: sortOrder,
         };
         if (appliedSearch) params.search = appliedSearch;
+        if (selectedStatus) params.status = selectedStatus;
+        if (selectedBranch) params.branch_id = selectedBranch;
+        if (selectedUser) params.user_id = selectedUser; // ✅ filter user
+
         return getApi(`${process.env.REACT_APP_API_URL}/api/orders`, params);
     };
 
-    // ========================
-    // TANSTACK QUERY
-    // ========================
     const { data: apiResponse, isLoading, refetch } = useQuery({
-        queryKey: ['orders', { page, pageSize, sortKey, sortOrder, appliedSearch }],
+        queryKey: ['orders', { page, pageSize, sortKey, sortOrder, appliedSearch, selectedStatus, selectedBranch, selectedUser }],
         queryFn: getOrders,
     });
 
-    const orders = apiResponse && Array.isArray(apiResponse.data?.items) ? apiResponse.data.items : [];
+    const orders = apiResponse?.data?.items ?? [];
     const pagination = apiResponse?.data?.pagination;
     const total = pagination?.total ?? 0;
 
-    // ========================
-    // HANDLERS
-    // ========================
+    // ============================================================
+    // API Branches & Users
+    // ============================================================
+    const { data: apiBranchesResponse } = useQuery({
+        queryKey: ['branches'],
+        queryFn: () => getApi(`${process.env.REACT_APP_API_URL}/api/branches`),
+    });
+    const branchOptions = apiBranchesResponse?.data?.items ?? [];
+
+    const { data: apiUsersResponse } = useQuery({
+        queryKey: ['users'],
+        queryFn: () => getApi(`${process.env.REACT_APP_API_URL}/api/users`),
+    });
+    const userOptions = apiUsersResponse?.data?.items ?? [];
+
+    // ============================================================
+    // Helpers
+    // ============================================================
+    const buildParams = (overrides = {}) => ({
+        page: String(page),
+        page_size: String(pageSize),
+        sort_field: sortKey,
+        sort_order: sortOrder,
+        ...(appliedSearch ? { search: appliedSearch } : {}),
+        ...(selectedStatus ? { status: selectedStatus } : {}),
+        ...(selectedBranch ? { branch_id: selectedBranch } : {}),
+        ...(selectedUser ? { user_id: selectedUser } : {}), // ✅ filter user
+        ...overrides,
+    });
+
+    const cleanParams = (params: Record<string, any>) => {
+        const cleaned: Record<string, string> = {};
+        Object.entries(params).forEach(([k, v]) => {
+            if (v !== null && v !== undefined && v !== '') cleaned[k] = String(v);
+        });
+        return cleaned;
+    };
+
     const handlePageChange = (newPage: number) => {
         setPage(newPage);
-        setSearchParams(
-            {
-                page: String(newPage),
-                page_size: String(pageSize),
-                sort_field: sortKey,
-                sort_order: sortOrder,
-                ...(appliedSearch ? { search: appliedSearch } : {}),
-            },
-            { replace: true }
-        );
+        setSearchParams(cleanParams(buildParams({ page: String(newPage) })), { replace: true });
     };
 
     const handlePageSizeChange = (newSize: number) => {
         setPageSize(newSize);
         setPage(1);
-        setSearchParams(
-            {
-                page: '1',
-                page_size: String(newSize),
-                sort_field: sortKey,
-                sort_order: sortOrder,
-                ...(appliedSearch ? { search: appliedSearch } : {}),
-            },
-            { replace: true }
-        );
+        setSearchParams(cleanParams(buildParams({ page: '1', page_size: String(newSize) })), { replace: true });
     };
 
     const handleSortChange = (key: string, order: 'asc' | 'desc') => {
         setSortKey(key);
         setSortOrder(order);
         setPage(1);
-        setSearchParams(
-            {
-                page: '1',
-                page_size: String(pageSize),
-                sort_field: key,
-                sort_order: order,
-                ...(appliedSearch ? { search: appliedSearch } : {}),
-            },
-            { replace: true }
-        );
+        setSearchParams(cleanParams(buildParams({ page: '1', sort_field: key, sort_order: order })), { replace: true });
     };
-
-    // ========================
-    // SEARCH HANDLERS
-    // ========================
-    const [isSearchLoading, setIsSearchLoading] = useState(false);
 
     const handleSearch = async () => {
         if (!searchQuery.trim()) {
             toast.error('Vui lòng nhập từ khóa tìm kiếm');
             return;
         }
-
         setIsSearchLoading(true);
         setPage(1);
-        setAppliedSearch(searchQuery); // ✅ Áp dụng từ khóa chính thức
-        setSearchParams(
-            {
-                page: '1',
-                page_size: String(pageSize),
-                sort_field: sortKey,
-                sort_order: sortOrder,
-                search: searchQuery,
-            },
-            { replace: true }
-        );
-
+        setAppliedSearch(searchQuery);
+        setSearchParams(cleanParams(buildParams({ page: '1', search: searchQuery })), { replace: true });
         await refetch();
         setIsSearchLoading(false);
     };
 
     const handleResetSearch = async () => {
-        if (!appliedSearch && !searchQuery) return;
+        if (!appliedSearch && !searchQuery && !selectedStatus && !selectedBranch && !selectedUser) return;
         setSearchQuery('');
         setAppliedSearch('');
+        setSelectedStatus(null);
+        setSelectedBranch(null);
+        setSelectedUser(null);
         setPage(1);
-        setSearchParams(
-            {
-                page: '1',
-                page_size: String(pageSize),
-                sort_field: sortKey,
-                sort_order: sortOrder,
-            },
-            { replace: true }
-        );
+        setSearchParams(cleanParams({
+            page: '1',
+            page_size: String(pageSize),
+            sort_field: sortKey,
+            sort_order: sortOrder,
+        }), { replace: true });
         await refetch();
         toast.success('Đã hiển thị lại tất cả đơn hàng');
     };
 
-    // ========================
-    // STATUS COLOR
-    // ========================
-    const getStatusColor = (status: Order['status']) => {
-        switch (status) {
-            case 'pending': return 'bg-yellow-100 text-yellow-800';
-            case 'confirmed': return 'bg-indigo-100 text-indigo-800';
-            case 'processing': return 'bg-blue-100 text-blue-800';
-            case 'shipped': return 'bg-purple-100 text-purple-800';
-            case 'delivered': return 'bg-green-100 text-green-800';
-            case 'canceled': return 'bg-red-100 text-red-800';
-            case 'failed': return 'bg-pink-100 text-pink-800';
-            case 'refunded': return 'bg-teal-100 text-teal-800';
-            case 'completed': return 'bg-lime-100 text-lime-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    // ========================
-    // TABLE COLUMNS
-    // ========================
+    // ============================================================
+    // Cấu hình bảng
+    // ============================================================
     const columns = [
         {
-            key: 'id',
+            key: 'order_code',
             title: 'Mã đơn hàng',
             sortable: true,
-            render: (value: string, item: Order) => (
-                <div>
-                    <p className="font-mono text-sm text-primary-600">#{value}</p>
-                    <p className="font-mono text-sm text-primary-600">{`Mã code: ${item.order_code}`}</p>
-                </div>
-            ),
+            render: (value: string) => <p className="font-mono text-sm text-primary-600">{value}</p>,
         },
+        { key: 'user_name', title: 'Khách hàng' },
+        { key: 'branch_name', title: 'Chi nhánh' },
         {
-            key: 'user_name',
-            title: 'Tên khách hàng',
-            sortable: true,
-            render: (value: string) => <p className="font-medium text-gray-600">{value}</p>,
-        },
-        {
-            key: 'branch_name',
-            title: 'Chi nhánh',
-            sortable: true,
-            render: (value: string) => <p className="font-medium text-gray-600">{value}</p>,
-        },
-        {
-            key: 'created_at',
-            title: 'Ngày đặt hàng',
-            sortable: true,
-            render: (value: any) => (
-                <p className="font-medium text-gray-600">
-                    <span className="font-medium text-blue-600">{formatDate(value)}</span>
-                </p>
-            ),
+            key: 'total_amount',
+            title: 'Tổng tiền',
+            render: (value: string) => <p className="font-medium text-gray-600">{Number(value).toLocaleString()} ₫</p>,
         },
         {
             key: 'status',
             title: 'Trạng thái',
-            render: (value: Order['status']) => (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(value)}`}>
-                    {value.charAt(0).toUpperCase() + value.slice(1)}
+            render: (value: string) => (
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                    {value}
                 </span>
             ),
+        },
+        {
+            key: 'created_at',
+            title: 'Ngày tạo',
+            render: (value: string) => <p className="text-gray-600">{formatDate(value)}</p>,
         },
         {
             key: 'actions',
@@ -275,47 +275,91 @@ const Orders: React.FC = () => {
         },
     ];
 
-    // ========================
-    // UI
-    // ========================
+    // ============================================================
+    // JSX Render
+    // ============================================================
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Đơn hàng</h1>
                     <p className="text-gray-600">Quản lý đơn hàng của bạn</p>
                 </div>
-                <div className="space-x-2">
-                    <Button onClick={() => navigate(`/admin/orders/create`)}>Tạo mới</Button>
-                    <Button onClick={() => navigate(`/admin/orders/statistics`)}>Thống kê</Button>
-                </div>
+                <Button onClick={() => navigate('/admin/orders/create')}>Tạo mới</Button>
             </div>
 
-            {/* Content */}
             <Card>
-                <div className="flex items-start gap-2 w-full">
-                    <SearchInput
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        handleSearch={handleSearch}
-                        isSearchLoading={isSearchLoading}
-                    />
-                    <Button
-                        variant="outline"
-                        className="h-10 px-3 flex-none"
-                        onClick={handleResetSearch}
-                    >
+                {/* Hàng bộ lọc và tìm kiếm */}
+                <div className="flex flex-wrap items-start gap-2 w-full mb-4">
+                    <div className="w-48">
+                        <DropdownSelect
+                            data={statusOptions}
+                            value={selectedStatus}
+                            onChange={(val) => {
+                                const newVal = val ? String(val) : null;
+                                setSelectedStatus(newVal);
+                                setPage(1);
+                                const params = buildParams({ page: '1', status: newVal || undefined });
+                                setSearchParams(cleanParams(params), { replace: true });
+                            }}
+                            placeholder="Chọn trạng thái"
+                            defaultOptionLabel="Tất cả trạng thái"
+                        />
+                    </div>
+
+                    <div className="w-56">
+                        <DropdownSelect
+                            data={branchOptions}
+                            value={selectedBranch}
+                            onChange={(val) => {
+                                const newVal = val ? String(val) : null;
+                                setSelectedBranch(newVal);
+                                setPage(1);
+                                const params = buildParams({ page: '1', branch_id: newVal || undefined });
+                                setSearchParams(cleanParams(params), { replace: true });
+                            }}
+                            placeholder="Chọn chi nhánh"
+                            defaultOptionLabel="Tất cả chi nhánh"
+                        />
+                    </div>
+
+                    <div className="w-56">
+                        <DropdownSelect
+                            valueKey="id"
+                            labelKey="full_name"
+                            data={userOptions}
+                            value={selectedUser}
+                            onChange={(val) => {
+                                const newVal = val ? String(val) : null;
+                                setSelectedUser(newVal);
+                                setPage(1);
+                                const params = buildParams({ page: '1', user_id: newVal || undefined });
+                                setSearchParams(cleanParams(params), { replace: true });
+                            }}
+                            placeholder="Chọn khách hàng"
+                            defaultOptionLabel="Tất cả khách hàng"
+                        />
+                    </div>
+
+                    <div className="flex-1 min-w-[250px]">
+                        <SearchInput
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            handleSearch={handleSearch}
+                            isSearchLoading={isSearchLoading}
+                        />
+                    </div>
+
+                    <Button variant="outline" className="h-10 px-3 flex-none" onClick={handleResetSearch}>
                         X
                     </Button>
                 </div>
-
 
                 <TableServerPagination
                     data={orders}
                     columns={columns}
                     loading={isLoading}
-                    emptyMessage="Không tìm thấy đơn hàng nào"
+                    emptyMessage="Không có đơn hàng nào"
                     page={page}
                     pageSize={pageSize}
                     total={total}
@@ -324,7 +368,7 @@ const Orders: React.FC = () => {
                     sortKey={sortKey}
                     sortOrder={sortOrder}
                     onSortChange={handleSortChange}
-                    preserveDataWhileLoading={false} // ✅ đảm bảo kết quả rỗng không hiển thị dữ liệu cũ
+                    preserveDataWhileLoading={false}
                 />
             </Card>
         </div>
@@ -332,3 +376,5 @@ const Orders: React.FC = () => {
 };
 
 export default Orders;
+
+

@@ -9,6 +9,7 @@ export interface Product {
     status: "active" | "inactive";
     short_description: string;
     description: string;
+    category_name: string;
 
     created_at: string | null;
     updated_at: string | null;

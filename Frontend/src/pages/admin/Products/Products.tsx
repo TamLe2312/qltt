@@ -7,8 +7,19 @@ import { Product } from '../../../types';
 import Card from '../../../components/ui/data-display/Card';
 import Button from '../../../components/ui/form/Button';
 import TableServerPagination from '../../../components/ui/data-display/TableServerPagination';
+import SearchInput from '../../../components/ui/search/SearchInput';
+import DropdownSelect from '../../../components/ui/form/DropdownSelect';
+import toast from 'react-hot-toast';
+
+// ============================================================
+// COMPONENT: Products
+// Màn hình quản lý sản phẩm (hiển thị, tìm kiếm, lọc theo danh mục, sắp xếp, phân trang, xóa)
+// ============================================================
 
 const Products: React.FC = () => {
+    // ============================================================
+    // Hook & Khởi tạo
+    // ============================================================
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -26,8 +37,23 @@ const Products: React.FC = () => {
     const [sortKey, setSortKey] = useState(DEFAULTS.sortKey);
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(DEFAULTS.sortOrder);
     const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
+    const [appliedSearch, setAppliedSearch] = useState(DEFAULTS.search);
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string | number | null>(null);
 
-    // ---- Đồng bộ URL ↔ state
+    // ============================================================
+    // Gọi API: Lấy danh mục sản phẩm để filter
+    // ============================================================
+    const { data: categoriesData, isLoading: loadingCategories } = useQuery({
+        queryKey: ['categories'],
+        queryFn: () => getApi(`${process.env.REACT_APP_API_URL}/api/categories`),
+    });
+
+    const categories = categoriesData?.data?.items ?? [];
+
+    // ============================================================
+    // Đồng bộ giữa URL ↔ state (khi user đổi URL hoặc state thay đổi)
+    // ============================================================
     useEffect(() => {
         const urlParams = {
             page: parseInt(searchParams.get('page') || String(DEFAULTS.page), 10),
@@ -35,9 +61,17 @@ const Products: React.FC = () => {
             sortKey: searchParams.get('sort_field') || DEFAULTS.sortKey,
             sortOrder: (searchParams.get('sort_order') as 'asc' | 'desc') || DEFAULTS.sortOrder,
             search: searchParams.get('search') || DEFAULTS.search,
+            categoryId: searchParams.get('category_id') || null,
         };
 
-        const stateParams = { page, pageSize, sortKey, sortOrder, search: searchQuery };
+        const stateParams = {
+            page,
+            pageSize,
+            sortKey,
+            sortOrder,
+            search: appliedSearch,
+            categoryId: selectedCategory ? String(selectedCategory) : null,
+        };
 
         const isUrlDifferent = Object.keys(urlParams).some(
             (key) => (urlParams as any)[key] !== (stateParams as any)[key]
@@ -48,7 +82,9 @@ const Products: React.FC = () => {
             setPageSize(urlParams.pageSize);
             setSortKey(urlParams.sortKey);
             setSortOrder(urlParams.sortOrder);
+            setAppliedSearch(urlParams.search);
             setSearchQuery(urlParams.search);
+            setSelectedCategory(urlParams.categoryId);
             return;
         }
 
@@ -63,24 +99,32 @@ const Products: React.FC = () => {
                 { replace: true }
             );
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams, page, pageSize, sortKey, sortOrder, searchQuery]);
+    }, [searchParams, page, pageSize, sortKey, sortOrder, appliedSearch, selectedCategory]);
 
-    // Function GET Products
-    const getProducts = () => {
+    // ============================================================
+    // Gọi API: Lấy danh sách sản phẩm
+    // ============================================================
+    const getProducts = async () => {
         const params: any = {
             page,
             page_size: pageSize,
             sort_field: sortKey,
             sort_order: sortOrder,
         };
-        if (searchQuery) params.search = searchQuery;
+        if (appliedSearch) params.search = appliedSearch;
+        if (selectedCategory) params.category_id = selectedCategory;
+
+        // Giả lập delay để xem hiệu ứng loading
+        // await new Promise((resolve) => setTimeout(resolve, 800));
+
         return getApi(`${process.env.REACT_APP_API_URL}/api/products`, params);
     };
 
-    // Lấy dữ liệu từ React Query
-    const { data: apiResponse, isLoading } = useQuery({
-        queryKey: ['products', { page, pageSize, sortKey, sortOrder, searchQuery }],
+    // ============================================================
+    // React Query: Lấy danh sách sản phẩm
+    // ============================================================
+    const { data: apiResponse, isLoading, refetch } = useQuery({
+        queryKey: ['products', { page, pageSize, sortKey, sortOrder, appliedSearch, selectedCategory }],
         queryFn: getProducts,
     });
 
@@ -88,12 +132,13 @@ const Products: React.FC = () => {
     const pagination = apiResponse?.data?.pagination;
     const total = pagination?.total ?? 0;
 
-    // Hàm gọi API xoá
+    // ============================================================
+    // Gọi API: Xoá sản phẩm
+    // ============================================================
     const deleteProduct = async (id: string | number) => {
         return deleteApi(`${process.env.REACT_APP_API_URL}/api/products/${id}`);
     };
 
-    // Mutation xoá sản phẩm
     const { mutate: handleDelete } = useMutation({
         mutationFn: deleteProduct,
         onSuccess: () => {
@@ -105,7 +150,9 @@ const Products: React.FC = () => {
         },
     });
 
-    // Hàm xác nhận xoá
+    // ============================================================
+    // Hàm xử lý sự kiện người dùng
+    // ============================================================
     const confirmDelete = (id: string | number) => {
         Swal.fire({
             title: 'Bạn có chắc chắn?',
@@ -130,6 +177,8 @@ const Products: React.FC = () => {
                 page_size: String(pageSize),
                 sort_field: sortKey,
                 sort_order: sortOrder,
+                ...(appliedSearch ? { search: appliedSearch } : {}),
+                ...(selectedCategory ? { category_id: String(selectedCategory) } : {}),
             },
             { replace: true }
         );
@@ -144,6 +193,8 @@ const Products: React.FC = () => {
                 page_size: String(newSize),
                 sort_field: sortKey,
                 sort_order: sortOrder,
+                ...(appliedSearch ? { search: appliedSearch } : {}),
+                ...(selectedCategory ? { category_id: String(selectedCategory) } : {}),
             },
             { replace: true }
         );
@@ -159,16 +210,67 @@ const Products: React.FC = () => {
                 page_size: String(pageSize),
                 sort_field: key,
                 sort_order: order,
+                ...(appliedSearch ? { search: appliedSearch } : {}),
+                ...(selectedCategory ? { category_id: String(selectedCategory) } : {}),
             },
             { replace: true }
         );
     };
 
-    // Định nghĩa giao diện bảng Products
+    // ============================================================
+    // Xử lý tìm kiếm
+    // ============================================================
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) {
+            toast.error('Vui lòng nhập từ khóa tìm kiếm');
+            return;
+        }
+
+        setIsSearchLoading(true);
+        setPage(1);
+        setAppliedSearch(searchQuery);
+        setSearchParams(
+            {
+                page: '1',
+                page_size: String(pageSize),
+                sort_field: sortKey,
+                sort_order: sortOrder,
+                search: searchQuery,
+                ...(selectedCategory ? { category_id: String(selectedCategory) } : {}),
+            },
+            { replace: true }
+        );
+
+        await refetch();
+        setIsSearchLoading(false);
+    };
+
+    const handleResetSearch = async () => {
+        if (!appliedSearch && !searchQuery && !selectedCategory) return;
+        setSearchQuery('');
+        setAppliedSearch('');
+        setSelectedCategory(null);
+        setPage(1);
+        setSearchParams(
+            {
+                page: '1',
+                page_size: String(pageSize),
+                sort_field: sortKey,
+                sort_order: sortOrder,
+            },
+            { replace: true }
+        );
+        await refetch();
+        toast.success('Đã hiển thị lại tất cả sản phẩm');
+    };
+
+    // ============================================================
+    // Cấu hình bảng hiển thị sản phẩm
+    // ============================================================
     const columns = [
         {
             key: 'id',
-            title: 'ID người dùng',
+            title: 'ID',
             sortable: true,
             render: (value: string) => (
                 <span className="font-mono text-sm text-primary-600">#{value}</span>
@@ -192,30 +294,28 @@ const Products: React.FC = () => {
             ),
         },
         {
-            key: 'sku',
-            title: 'SKU',
-            sortable: true,
-            render: (value: string) => (
-                <span className="font-mono text-sm text-primary-600">{value}</span>
-            ),
-        },
-        {
             key: 'name',
             title: 'Tên sản phẩm',
             sortable: true,
-            render: (value: string) => (
+            render: (value: string, item: Product) => (
                 <div>
                     <p className="font-medium text-gray-600">{value}</p>
+                    <span className="font-mono text-sm text-primary-600">{item.sku}</span>
                 </div>
+            ),
+        },
+        {
+            key: 'category_name',
+            title: 'Danh mục',
+            render: (value: string) => (
+                <span className="font-medium text-sm text-gray-600">{value}</span>
             ),
         },
         {
             key: 'unit_of_measure',
             title: 'Đơn vị tính',
             render: (value: string) => (
-                <div>
-                    <p className="font-medium text-gray-600">{value}</p>
-                </div>
+                <p className="font-medium text-gray-600">{value}</p>
             ),
         },
         {
@@ -223,9 +323,7 @@ const Products: React.FC = () => {
             title: 'Giá',
             sortable: true,
             render: (value: string) => (
-                <div>
-                    <p className="font-medium text-gray-600">{value}</p>
-                </div>
+                <p className="font-medium text-gray-600">{value}</p>
             ),
         },
         {
@@ -246,6 +344,9 @@ const Products: React.FC = () => {
         },
     ];
 
+    // ============================================================
+    // JSX Render
+    // ============================================================
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -259,8 +360,49 @@ const Products: React.FC = () => {
                 </div>
             </div>
 
-            {/* Products Table */}
+            {/* Search + Filter + Table */}
             <Card>
+                <div className="flex items-start gap-2 w-full mb-3">
+                    <div className="w-64">
+                        <DropdownSelect
+                            data={categories}
+                            value={selectedCategory}
+                            onChange={(val) => {
+                                setSelectedCategory(val);
+                                setPage(1);
+                                setSearchParams(
+                                    {
+                                        page: '1',
+                                        page_size: String(pageSize),
+                                        sort_field: sortKey,
+                                        sort_order: sortOrder,
+                                        ...(appliedSearch ? { search: appliedSearch } : {}),
+                                        ...(val ? { category_id: String(val) } : {}),
+                                    },
+                                    { replace: true }
+                                );
+                            }}
+                            loading={loadingCategories}
+                            placeholder="Chọn danh mục"
+                            defaultOptionLabel="Tất cả danh mục"
+                        />
+                    </div>
+
+                    <SearchInput
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        handleSearch={handleSearch}
+                        isSearchLoading={isSearchLoading}
+                    />
+                    <Button
+                        variant="outline"
+                        className="h-10 px-3 flex-none"
+                        onClick={handleResetSearch}
+                    >
+                        X
+                    </Button>
+                </div>
+
                 <TableServerPagination
                     data={products}
                     columns={columns}
@@ -274,7 +416,7 @@ const Products: React.FC = () => {
                     sortKey={sortKey}
                     sortOrder={sortOrder}
                     onSortChange={handleSortChange}
-                    preserveDataWhileLoading={true}
+                    preserveDataWhileLoading={false}
                 />
             </Card>
         </div>
@@ -282,3 +424,4 @@ const Products: React.FC = () => {
 };
 
 export default Products;
+    
