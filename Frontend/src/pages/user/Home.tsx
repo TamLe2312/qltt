@@ -35,36 +35,50 @@ const Home: React.FC = () => {
       }
     }
   }, [dispatch, navigate]);
+
+  const logoutHandler = () => {
+    localStorage.removeItem("accessToken");
+    dispatch(logout());
+    navigate("/");
+  };
   return (
     <div className="max-w-7xl mx-auto mt-10">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-xl p-12 text-white mb-12">
         <h1 className="text-5xl font-bold mb-4">Chào mừng đến với QLTT</h1>
         <p className="text-xl mb-8">Hệ thống quản lý e-commerce</p>
-        {!isAuthenticated && (
-          <div className="flex gap-4">
-            <Link to="/login">
-              <button className="px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition">
-                Đăng nhập
+        <div className="flex gap-4">
+          {!isAuthenticated && (
+            <>
+              <Link to="/login">
+                <button className="px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition">
+                  Đăng nhập
+                </button>
+              </Link>
+              <Link to="/register">
+                <button className="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition">
+                  Đăng ký ngay
+                </button>
+              </Link>
+            </>
+          )}
+          {isAuthenticated && (
+            <>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 inline-block">
+                <p className="text-lg">
+                  Xin chào, <span className="font-bold">{user?.full_name}</span>
+                  !
+                </p>
+              </div>
+              <button
+                className="px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition"
+                onClick={logoutHandler}
+              >
+                Logout
               </button>
-            </Link>
-            <Link to="/register">
-              <button className="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition">
-                Đăng ký ngay
-              </button>
-            </Link>
-          </div>
-        )}
-        {isAuthenticated && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 inline-block">
-            <p className="text-lg">
-              Xin chào, <span className="font-bold">{user?.full_name}</span>!
-            </p>
-          </div>
-        )}
-        <button className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
-          Logout
-        </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Admin Link */}
