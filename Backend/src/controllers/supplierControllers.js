@@ -98,8 +98,9 @@ const createSupplier = async (req, res) => {
       phone,
     } = req.body;
 
-    await dbHeadOffice.query(
+    const result = await dbHeadOffice.query(
       `INSERT INTO suppliers (name, street, ward, district, city, country, zipcode, email, phone)
+      OUTPUT INSERTED.*
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       {
         replacements: [
@@ -113,12 +114,12 @@ const createSupplier = async (req, res) => {
           email,
           phone,
         ],
-        type: QueryTypes.INSERT,
+        type: QueryTypes.SELECT,
         transaction: t,
       }
     );
     await t.commit();
-    res.status(201).json({ message: "Supplier created" });
+    res.status(201).json({ message: "Supplier created", data: result[0] });
   } catch (err) {
     await t.rollback();
     console.error(err);
@@ -168,7 +169,7 @@ const updateSupplier = async (req, res) => {
       return res.status(404).json({ message: "Supplier not found" });
     }
     await t.commit();
-    res.json({ message: "Supplier updated" });
+    res.status(201).json({ message: "Supplier updated" });
   } catch (err) {
     await t.rollback();
     console.error(err);
@@ -196,7 +197,7 @@ const deleteSupplier = async (req, res) => {
         .json({ message: "Supplier not found or already deleted" });
     }
     await t.commit();
-    res.json({
+    res.status(200).json({
       status: "success",
       message: "Supplier deleted",
     });

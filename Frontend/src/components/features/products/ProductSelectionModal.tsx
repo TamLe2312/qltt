@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { OrderProduct } from '../../../types';
-import Input from '../../ui/form/Input';
-import { getApi } from '../../../utils';
-import { useQuery } from '@tanstack/react-query';
-import Button from '../../ui/form/Button';
-import Modal from '../../ui/data-display/Modal';
-import Table from '../../ui/data-display/Table';
+import React, { useEffect, useState } from "react";
+import { OrderProduct } from "../../../types";
+import Input from "../../ui/form/Input";
+import { getApi } from "../../../utils";
+import { useQuery } from "@tanstack/react-query";
+import Button from "../../ui/form/Button";
+import Modal from "../../ui/data-display/Modal";
+import Table from "../../ui/data-display/Table";
 
 type ApiProduct = {
   id: string;
@@ -36,18 +36,18 @@ const QuantityInput: React.FC<{
   onChange: (val: number) => void;
   onFocusSelect?: () => void;
 }> = ({ value, max, onChange, onFocusSelect }) => {
-  const [text, setText] = useState(value ? String(value) : '');
+  const [text, setText] = useState(value ? String(value) : "");
 
   useEffect(() => {
-    setText(value ? String(value) : '');
+    setText(value ? String(value) : "");
   }, [value]);
 
   const handleBlur = () => {
-    const cleaned = text.replace(/[^\d]/g, '');
+    const cleaned = text.replace(/[^\d]/g, "");
     const num = parseInt(cleaned, 10);
 
     if (!cleaned || isNaN(num) || num < 1) {
-      setText('1');
+      setText("1");
       onChange(1);
     } else if (num > max) {
       setText(String(max));
@@ -83,7 +83,7 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
     getApi(`${process.env.REACT_APP_API_URL}/api/branches/${id}/products`);
 
   const { data: apiResponse, isLoading: loading } = useQuery({
-    queryKey: ['branchProducts', branchId],
+    queryKey: ["branchProducts", branchId],
     queryFn: () => getProductsByBranch(branchId!),
     enabled: !!branchId && isOpen,
   });
@@ -127,7 +127,10 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
     setSelectedItems((prev) => {
       if (checked) {
         if (prev.some((p) => p.product_id === product.id)) return prev;
-        return [...prev, { product_id: product.id, quantity: 1, price: product.price }];
+        return [
+          ...prev,
+          { product_id: product.id, quantity: 1, price: product.price },
+        ];
       } else {
         return prev.filter((p) => p.product_id !== product.id);
       }
@@ -158,8 +161,8 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
 
   const columns: any[] = [
     {
-      key: 'select',
-      title: '',
+      key: "select",
+      title: "",
       render: (_: any, item: ApiProduct) => {
         const checked = selectedItems.some((p) => p.product_id === item.id);
         const disabled = item.quantity < 1;
@@ -175,8 +178,8 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
       },
     },
     {
-      key: 'product_name',
-      title: 'Tên sản phẩm',
+      key: "product_name",
+      title: "Tên sản phẩm",
       render: (_: any, item: ApiProduct) => (
         <div className="flex flex-col">
           <span className="font-medium text-gray-900">{item.product_name}</span>
@@ -185,24 +188,30 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
       ),
     },
     {
-      key: 'price',
-      title: 'Giá',
+      key: "price",
+      title: "Giá",
       render: (_: any, item: ApiProduct) => (
-        <span className="font-medium">{Number(item.price).toLocaleString()} ₫</span>
+        <span className="font-medium">
+          {Number(item.price).toLocaleString()} ₫
+        </span>
       ),
     },
     {
-      key: 'stock',
-      title: 'Tồn kho',
+      key: "stock",
+      title: "Tồn kho",
       render: (_: any, item: ApiProduct) => (
-        <span className={`font-medium ${item.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+        <span
+          className={`font-medium ${
+            item.quantity > 0 ? "text-green-600" : "text-red-600"
+          }`}
+        >
           {item.quantity}
         </span>
       ),
     },
     {
-      key: 'select_quantity',
-      title: 'Số lượng chọn',
+      key: "select_quantity",
+      title: "Số lượng chọn",
       render: (_: any, item: ApiProduct) => {
         const selected = selectedItems.find((x) => x.product_id === item.id);
         const current = selected ? Number(selected.quantity) : 0;
@@ -219,7 +228,11 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
                 if (!selected) {
                   setSelectedItems((prev) => [
                     ...prev,
-                    { product_id: item.id, quantity: newVal, price: item.price },
+                    {
+                      product_id: item.id,
+                      quantity: newVal,
+                      price: item.price,
+                    },
                   ]);
                 } else {
                   setQuantityFor(item.id, newVal, max);
@@ -253,7 +266,11 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
                 if (!selected) {
                   setSelectedItems((prev) => [
                     ...prev,
-                    { product_id: item.id, quantity: newVal, price: item.price },
+                    {
+                      product_id: item.id,
+                      quantity: newVal,
+                      price: item.price,
+                    },
                   ]);
                 } else {
                   setQuantityFor(item.id, newVal, max);
@@ -270,9 +287,16 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
   ];
 
   const selectedCount = selectedItems.length;
-  const totalItems = selectedItems.reduce((sum, p) => sum + Number(p.quantity), 0);
-  const selectableProductsCount = products.filter((p: any) => p.quantity >= 1).length;
-  const isAllSelected = selectableProductsCount > 0 && selectedItems.length === selectableProductsCount;
+  const totalItems = selectedItems.reduce(
+    (sum, p) => sum + Number(p.quantity),
+    0
+  );
+  const selectableProductsCount = products.filter(
+    (p: any) => p.quantity >= 1
+  ).length;
+  const isAllSelected =
+    selectableProductsCount > 0 &&
+    selectedItems.length === selectableProductsCount;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Chọn sản phẩm" size="xl">
@@ -312,10 +336,17 @@ const ProductSelectionModal: React.FC<ProductSelectionModalProps> = ({
                 Đã chọn {selectedCount} sản phẩm ({totalItems} sản phẩm)
               </div>
               <div className="flex gap-2">
-                <Button onClick={() => setSelectedItems([])} variant="outline" size="md">
+                <Button
+                  onClick={() => setSelectedItems([])}
+                  variant="outline"
+                  size="md"
+                >
                   Bỏ chọn hết
                 </Button>
-                <Button onClick={handleAddSelected} disabled={selectedCount === 0}>
+                <Button
+                  onClick={handleAddSelected}
+                  disabled={selectedCount === 0}
+                >
                   Thêm vào đơn hàng
                 </Button>
               </div>

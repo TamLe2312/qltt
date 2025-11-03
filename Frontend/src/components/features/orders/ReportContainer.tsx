@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { OrderFilters, OrderStatistics, GroupBy } from "../../../types";
 import FiltersPanel from "./FiltersPanel";
 import ReportChart from "./ReportChart";
-import { formatCurrency, postApi } from "../../../utils";
+import { postApi } from "../../../utils";
 import Card from "../../ui/data-display/Card";
+import CountUp from "react-countup";
 
 const DEFAULT_FILTERS: { filters: OrderFilters; groupBy: GroupBy } = {
   filters: {
@@ -87,9 +88,14 @@ export default function ReportContainer() {
             <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
               <p className="text-sm text-gray-500">Tổng đơn hàng</p>
               <p className="text-2xl font-semibold text-blue-600 break-words text-center">
-                {chartData
-                  .reduce((sum, d) => sum + Number(d.total_orders), 0)
-                  .toLocaleString()}
+                <CountUp
+                  end={chartData.reduce(
+                    (sum, d) => sum + Number(d.total_orders),
+                    0
+                  )}
+                  duration={2}
+                  separator="."
+                />
               </p>
             </div>
 
@@ -97,9 +103,15 @@ export default function ReportContainer() {
             <div className="bg-white rounded-2xl shadow p-4 flex flex-col items-center justify-center">
               <p className="text-sm text-gray-500">Tổng doanh thu</p>
               <p className="text-2xl font-semibold text-green-600 break-words text-center">
-                {formatCurrency(
-                  chartData.reduce((sum, d) => sum + Number(d.total_amount), 0)
-                )}
+                <CountUp
+                  end={chartData.reduce(
+                    (sum, d) => sum + Number(d.total_amount),
+                    0
+                  )}
+                  prefix="đ"
+                  duration={2}
+                  separator="."
+                />
               </p>
             </div>
 
@@ -118,9 +130,16 @@ export default function ReportContainer() {
                     (s, d) => s + Number(d.total_amount),
                     0
                   );
-                  return totalOrders > 0
-                    ? formatCurrency(totalAmount / totalOrders)
-                    : "-";
+                  return totalOrders > 0 ? (
+                    <CountUp
+                      end={totalAmount / totalOrders}
+                      prefix="đ"
+                      duration={2}
+                      separator="."
+                    />
+                  ) : (
+                    "-"
+                  );
                 })()}
               </p>
             </div>
@@ -165,7 +184,14 @@ export default function ReportContainer() {
                         : "text-red-600"
                     }`}
                   >
-                    {`${change >= 0 ? "+" : ""}${change.toFixed(1)}%`}
+                    {`${change >= 0 ? "+" : ""}`}
+                    <CountUp
+                      end={change}
+                      duration={2}
+                      decimals={1}
+                      decimal="."
+                    />
+                    %
                   </p>
                 );
               })()}

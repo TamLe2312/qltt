@@ -180,13 +180,60 @@ const createUser = async (req, res) => {
 
     await t.commit();
 
-    res.status(201).json({ message: "User created" });
+    res
+      .status(201)
+      .json({ message: "User created", data: insertUserResult[0] });
   } catch (err) {
     await t.rollback();
     console.error(err);
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
+
+// const updateUser = async (req, res) => {
+//   const t = await dbHeadOffice.transaction();
+//   try {
+//     const { id } = req.params;
+//     const { full_name, status, username, email, phone, password } = req.body;
+
+//     const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+
+//     await dbHeadOffice.query(
+//       `UPDATE users
+//        SET
+//         full_name = ?,
+//         status = ?,
+//         username = ?,
+//         email = ?,
+//         phone = ?,
+//         password = COALESCE(?, password),
+//         updated_at = SYSDATETIME()
+//         OUTPUT INSERTED.*
+//         WHERE id = ?`,
+//       {
+//         replacements: [
+//           full_name,
+//           status,
+//           username,
+//           email,
+//           phone,
+//           hashedPassword,
+//           id,
+//         ],
+//         type: QueryTypes.SELECT,
+//         transaction: t,
+//       }
+//     );
+
+//     await t.commit();
+
+//     res.status(201).json({ message: "User updated" });
+//   } catch (err) {
+//     await t.rollback();
+//     console.error(err);
+//     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
+//   }
+// };
 
 const updateUser = async (req, res) => {
   const t = await dbHeadOffice.transaction();
@@ -243,13 +290,13 @@ const updateUser = async (req, res) => {
     const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
     await dbHeadOffice.query(
-      `UPDATE users 
-       SET 
-        full_name = ?, 
-        status = ?, 
-        username = ?, 
-        email = ?, 
-        phone = ?, 
+      `UPDATE users
+       SET
+        full_name = ?,
+        status = ?,
+        username = ?,
+        email = ?,
+        phone = ?,
         password = COALESCE(?, password),
         updated_at = SYSDATETIME()
        OUTPUT INSERTED.*
@@ -271,7 +318,7 @@ const updateUser = async (req, res) => {
 
     await t.commit();
 
-    res.json({ message: "User updated" });
+    res.status(201).json({ message: "User updated" });
   } catch (err) {
     await t.rollback();
     console.error(err);
@@ -301,7 +348,9 @@ const deleteUser = async (req, res) => {
 
     await t.commit();
 
-    res.json({ status: "success", message: "User deleted successfully" });
+    res
+      .status(200)
+      .json({ status: "success", message: "User deleted successfully" });
   } catch (err) {
     await t.rollback();
     console.error(err);

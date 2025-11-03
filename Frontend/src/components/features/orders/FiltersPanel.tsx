@@ -3,7 +3,7 @@ import { DatePicker, Select, InputNumber, Form, Spin, Button } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import type { OrderFilters as BaseOrderFilters, GroupBy } from "../../../types";
-import { getApi } from "../../../utils";
+import { formatCurrency, getApi } from "../../../utils";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -18,7 +18,6 @@ interface FiltersPanelProps {
 }
 
 export default function FiltersPanel({ onChange }: FiltersPanelProps) {
-  // ✅ Trạng thái mặc định
   const defaultState = {
     filters: {
       branchId: 1,
@@ -64,12 +63,12 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
 
   const handleChange = (key: keyof OrderFilters, value: any) => {
     const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
 
     if (key === "groupBy") {
       setGroupBy(value as GroupBy);
-      onChange(newFilters, value as GroupBy);
+      onChange({ ...filters }, value as GroupBy);
     } else {
+      setFilters(newFilters);
       onChange(newFilters, groupBy);
     }
   };
@@ -93,8 +92,15 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length === 0) {
-      handleChange("minTotal", min ?? undefined);
-      handleChange("maxTotal", max ?? undefined);
+      const newFilters = {
+        ...filters,
+        minTotal: min ?? undefined,
+        maxTotal: max ?? undefined,
+      };
+
+      setFilters(newFilters);
+
+      onChange(newFilters, newFilters.groupBy);
     }
   };
 
@@ -127,8 +133,16 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
               : undefined
           }
           onChange={(dates) => {
-            handleChange("startDate", dates?.[0]?.format("YYYY-MM-DD"));
-            handleChange("endDate", dates?.[1]?.format("YYYY-MM-DD"));
+            const startDate = dates?.[0]?.format("YYYY-MM-DD");
+            const endDate = dates?.[1]?.format("YYYY-MM-DD");
+
+            const newFilters = {
+              ...filters,
+              startDate: startDate,
+              endDate: endDate,
+            };
+            setFilters(newFilters);
+            onChange(newFilters, groupBy);
           }}
         />
 
@@ -159,7 +173,11 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
         {/* 3️⃣ Min Total */}
         <Form.Item
           validateStatus={errors.minTotal ? "error" : ""}
-          help={errors.minTotal}
+          help={
+            errors.minTotal
+              ? errors.minTotal
+              : formatCurrency(tempTotals.minTotal)
+          }
           style={{ marginBottom: 0 }}
         >
           <InputNumber
@@ -199,9 +217,15 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
           onChange={(values) => handleChange("status", values)}
           style={{ width: "100%" }}
         >
-          <Option value="pending">Pending</Option>
-          <Option value="completed">Completed</Option>
-          <Option value="canceled">Canceled</Option>
+          <Option value="Pending">Pending</Option>
+          <Option value="Confirmed">Confirmed</Option>
+          <Option value="Processing">Processing</Option>
+          <Option value="Shipped">Shipped</Option>
+          <Option value="Delivered">Delivered</Option>
+          <Option value="Completed">Completed</Option>
+          <Option value="Canceled">Canceled</Option>
+          <Option value="Failed">Failed</Option>
+          <Option value="Refunded">Refunded</Option>
         </Select>
 
         {/* 6️⃣ User */}
@@ -233,7 +257,11 @@ export default function FiltersPanel({ onChange }: FiltersPanelProps) {
         {/* 7️⃣ Max Total */}
         <Form.Item
           validateStatus={errors.maxTotal ? "error" : ""}
-          help={errors.maxTotal}
+          help={
+            errors.maxTotal
+              ? errors.maxTotal
+              : formatCurrency(tempTotals.maxTotal)
+          }
           style={{ marginBottom: 0 }}
         >
           <InputNumber

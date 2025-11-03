@@ -181,17 +181,18 @@ const createCategory = async (req, res) => {
   const t = await dbHeadOffice.transaction();
   try {
     const { name, parent_id } = req.body;
-    await dbHeadOffice.query(
+    const result = await dbHeadOffice.query(
       `INSERT INTO categories (name, parent_id)
+      OUTPUT INSERTED.*
       VALUES (? ,?)`,
       {
         replacements: [name, parent_id || null],
-        type: QueryTypes.INSERT,
+        type: QueryTypes.SELECT,
         transaction: t,
       }
     );
     await t.commit();
-    res.status(201).json({ message: "Category created" });
+    res.status(201).json({ message: "Category created", data: result[0] });
   } catch (err) {
     await t.rollback();
     console.error(err);
@@ -216,9 +217,11 @@ const updateCategory = async (req, res) => {
         transaction: t,
       }
     );
+
     if (result.length === 0) {
       return res.status(404).json({ error: "Category not found" });
     }
+
     await t.commit();
     res.status(201).json({ message: "Category updated" });
   } catch (err) {

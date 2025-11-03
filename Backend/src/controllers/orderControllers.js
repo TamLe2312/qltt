@@ -95,6 +95,7 @@ const getAllOrders = async (req, res) => {
 const getOrdersStatistics = async (req, res) => {
   try {
     let { filters = {}, groupBy = "month" } = req.body;
+    console.log(filters, groupBy);
 
     const validGroups = ["day", "month", "quarter", "year"];
     if (!validGroups.includes(groupBy)) {

@@ -1,6 +1,6 @@
 const express = require("express");
 const { productController } = require("../controllers/productControllers.js");
-const { uploadImage } = require("../middlewares/multerConfig.js");
+const { uploadImage, upload } = require("../middlewares/multerConfig.js");
 const authenticateToken = require("../middlewares/authenticateToken.js");
 const authorizeRole = require("../middlewares/authorizeRole.js");
 const Router = express.Router();
@@ -21,6 +21,20 @@ Router.post(
   ]),
   productController.createProduct
 );
+// Router.post(
+//   "/create",
+//   authenticateToken,
+//   authorizeRole(["Admin", "Employee"]),
+//   upload.none(),
+//   productController.createProduct
+// );
+// Router.put(
+//   "/update/:id",
+//   authenticateToken,
+//   authorizeRole(["Admin", "Employee"]),
+//   upload.none(),
+//   productController.updateProduct
+// );
 Router.put(
   "/update/:id",
   authenticateToken,

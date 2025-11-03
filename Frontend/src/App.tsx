@@ -19,6 +19,7 @@ import Suppliers from "./pages/admin/Suppliers/Suppliers";
 import Inventories from "./pages/admin/Inventories/Inventories";
 import Users from "./pages/admin/Users/Users";
 import OrderStatistics from "./pages/admin/Orders/OrderStatistics";
+import PerformanceChart from "./pages/admin/PerformanceChart/PerformanceChart";
 
 const adminRoutes = [
   { index: true, element: <Orders /> },
@@ -40,6 +41,7 @@ const adminRoutes = [
   { path: "orders/create", element: <OrderCreate /> },
   { path: "orders/:id/products", element: <OrderDetails /> },
   { path: "orders/statistics", element: <OrderStatistics /> },
+  { path: "chart/performance", element: <PerformanceChart /> },
 
   { path: "test", element: <Test /> },
 ];

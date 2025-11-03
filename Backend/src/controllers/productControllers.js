@@ -98,6 +98,53 @@ const getAllProducts = async (req, res) => {
   }
 };
 
+// const createProduct = async (req, res) => {
+//   const t = await dbHeadOffice.transaction();
+//   try {
+//     const {
+//       price,
+//       status,
+//       unit_of_measure,
+//       short_description,
+//       description,
+//       name,
+//       category_id,
+//     } = req.body;
+
+//     const result = await dbHeadOffice.query(
+//       `INSERT INTO products
+//         (price, status, unit_of_measure, short_description, description, name, category_id)
+//         VALUES
+//         (?, ?, ?, ?, ?, ?, ?)
+//         SELECT SCOPE_IDENTITY() AS id;
+//         `,
+//       {
+//         replacements: [
+//           price,
+//           status,
+//           unit_of_measure,
+//           short_description,
+//           description,
+//           name,
+//           category_id,
+//         ],
+//         type: QueryTypes.SELECT,
+//         transaction: t,
+//       }
+//     );
+
+//     await t.commit();
+
+//     res
+//       .status(201)
+//       .json({ message: "Product created", data: { id: result[0].id } });
+//   } catch (err) {
+//     await t.rollback();
+//     console.error(err);
+//     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
+//   }
+// };
+
 const createProduct = async (req, res) => {
   const t = await dbHeadOffice.transaction();
   const uploadedFiles = [];
@@ -126,9 +173,9 @@ const createProduct = async (req, res) => {
       : [];
 
     const result = await dbHeadOffice.query(
-      `INSERT INTO products 
+      `INSERT INTO products
         (price, status, unit_of_measure, short_description, description, name, category_id, avatar)
-       VALUES 
+       VALUES
         (?, ?, ?, ?, ?, ?, ?, ?)
 
         SELECT SCOPE_IDENTITY() AS id;
@@ -165,7 +212,7 @@ const createProduct = async (req, res) => {
       ]);
 
       await dbHeadOffice.query(
-        `INSERT INTO ProductImages (product_id, imageURL, sortOrder) 
+        `INSERT INTO ProductImages (product_id, imageURL, sortOrder)
          VALUES ${placeholders}`,
         {
           replacements: replacements,
@@ -191,6 +238,50 @@ const createProduct = async (req, res) => {
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
+
+// const updateProduct = async (req, res) => {
+//   const t = await dbHeadOffice.transaction();
+//   try {
+//     const { id } = req.params;
+//     const {
+//       price,
+//       status,
+//       unit_of_measure,
+//       short_description,
+//       description,
+//       name,
+//       category_id,
+//     } = req.body;
+
+//     await dbHeadOffice.query(
+//       `UPDATE products
+//        SET price=?, status=?, unit_of_measure=?, short_description=?, description=?, name=?, category_id=?, updated_at=SYSDATETIME()
+//        OUTPUT INSERTED.*
+//        WHERE id = ?`,
+//       {
+//         replacements: [
+//           price,
+//           status,
+//           unit_of_measure,
+//           short_description,
+//           description,
+//           name,
+//           category_id,
+//           id,
+//         ],
+//         type: QueryTypes.SELECT,
+//         transaction: t,
+//       }
+//     );
+
+//     await t.commit();
+//     res.status(201).json({ message: "Product updated" });
+//   } catch (err) {
+//     await t.rollback();
+//     console.error(err);
+//     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
+//   }
+// };
 
 const updateProduct = async (req, res) => {
   const t = await dbHeadOffice.transaction();
@@ -238,7 +329,7 @@ const updateProduct = async (req, res) => {
     const oldAvatar = oldProductResult[0].avatar;
 
     await dbHeadOffice.query(
-      `UPDATE products 
+      `UPDATE products
        SET price=?, status=?, unit_of_measure=?, short_description=?, description=?, name=?, category_id=?, avatar=COALESCE(?, avatar), updated_at=SYSDATETIME()
        OUTPUT INSERTED.*
        WHERE id = ?`,
@@ -272,7 +363,7 @@ const updateProduct = async (req, res) => {
         index,
       ]);
       await dbHeadOffice.query(
-        `INSERT INTO ProductImages (product_id, imageURL, sortOrder) 
+        `INSERT INTO ProductImages (product_id, imageURL, sortOrder)
          VALUES ${placeholders}`,
         {
           replacements: replacements,
@@ -313,26 +404,8 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   const t = await dbHeadOffice.transaction();
-  const filesToDelete = [];
   try {
     const { id } = req.params;
-
-    const oldProductResult = await dbHeadOffice.query(
-      "SELECT avatar FROM products WHERE id = ?",
-      { replacements: [id], type: QueryTypes.SELECT, transaction: t }
-    );
-
-    const oldImagesResult = await dbHeadOffice.query(
-      "SELECT imageURL FROM ProductImages WHERE product_id = ?",
-      { replacements: [id], type: QueryTypes.SELECT, transaction: t }
-    );
-
-    if (oldProductResult.length === 0 || oldImagesResult.length === 0) {
-      await t.rollback();
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    const oldAvatar = oldProductResult[0].avatar;
 
     const [result, metadata] = await dbHeadOffice.query(
       "DELETE FROM products WHERE id = ? AND deleted_at IS NULL",
@@ -349,33 +422,79 @@ const deleteProduct = async (req, res) => {
         .json({ message: "Product not found or already deleted" });
     }
 
-    if (oldImagesResult.length > 0) {
-      oldImagesResult.forEach((img) => filesToDelete.push(img.imageURL));
-
-      await dbHeadOffice.query(
-        "DELETE FROM ProductImages WHERE product_id = ?",
-        { replacements: [id], type: QueryTypes.DELETE, transaction: t }
-      );
-    }
-
-    if (oldAvatar) {
-      filesToDelete.push(oldAvatar);
-    }
     await t.commit();
-    if (filesToDelete.length > 0) {
-      try {
-        await deleteImages(filesToDelete);
-      } catch (deleteErr) {
-        console.error("Failed to delete old files:", deleteErr);
-      }
-    }
 
-    res.json({ message: "Product deleted" });
+    res.status(200).json({ message: "Product deleted" });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
   }
 };
+// const deleteProduct = async (req, res) => {
+//   const t = await dbHeadOffice.transaction();
+//   const filesToDelete = [];
+//   try {
+//     const { id } = req.params;
+
+//     const oldProductResult = await dbHeadOffice.query(
+//       "SELECT avatar FROM products WHERE id = ?",
+//       { replacements: [id], type: QueryTypes.SELECT, transaction: t }
+//     );
+
+//     const oldImagesResult = await dbHeadOffice.query(
+//       "SELECT imageURL FROM ProductImages WHERE product_id = ?",
+//       { replacements: [id], type: QueryTypes.SELECT, transaction: t }
+//     );
+
+//     if (oldProductResult.length === 0 || oldImagesResult.length === 0) {
+//       await t.rollback();
+//       return res.status(404).json({ message: "Product not found" });
+//     }
+
+//     const oldAvatar = oldProductResult[0].avatar;
+
+//     const [result, metadata] = await dbHeadOffice.query(
+//       "DELETE FROM products WHERE id = ? AND deleted_at IS NULL",
+//       {
+//         replacements: [id],
+//         transaction: t,
+//       }
+//     );
+
+//     if (metadata.affectedCount === 0) {
+//       await t.rollback();
+//       return res
+//         .status(404)
+//         .json({ message: "Product not found or already deleted" });
+//     }
+
+//     if (oldImagesResult.length > 0) {
+//       oldImagesResult.forEach((img) => filesToDelete.push(img.imageURL));
+
+//       await dbHeadOffice.query(
+//         "DELETE FROM ProductImages WHERE product_id = ?",
+//         { replacements: [id], type: QueryTypes.DELETE, transaction: t }
+//       );
+//     }
+
+//     if (oldAvatar) {
+//       filesToDelete.push(oldAvatar);
+//     }
+//     await t.commit();
+//     if (filesToDelete.length > 0) {
+//       try {
+//         await deleteImages(filesToDelete);
+//       } catch (deleteErr) {
+//         console.error("Failed to delete old files:", deleteErr);
+//       }
+//     }
+
+//     res.json({ message: "Product deleted" });
+//   } catch (err) {
+//     console.error(err);
+//     return res.status(500).json({ error: "Lỗi hệ thống", detail: err.message });
+//   }
+// };
 
 module.exports = {
   productController: {
