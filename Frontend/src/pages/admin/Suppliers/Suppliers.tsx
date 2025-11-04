@@ -341,6 +341,10 @@ const Suppliers: React.FC = () => {
                 <div className="flex items-center space-x-2">
                     <Button size="sm"
                         variant="outline"
+                        onClick={() => navigate(`/admin/inventories?supplier_id=${item.id}`)}>Sản phẩm
+                    </Button>
+                    <Button size="sm"
+                        variant="outline"
                         className="text-red-600 border-red-600 hover:bg-red-50"
                         onClick={() => confirmDeleteSupplier(item.id)}>Xóa
                     </Button>

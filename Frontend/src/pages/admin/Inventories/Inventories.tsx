@@ -13,6 +13,7 @@ import Input from '../../../components/ui/form/Input';
 import DropdownSelect from '../../../components/ui/form/DropdownSelect';
 import Modal from '../../../components/ui/data-display/Modal';
 import SearchInput from '../../../components/ui/search/SearchInput';
+import { Inventory } from '../../../types';
 
 // ===== Schema validate form =====
 const InventoryFormSchema = Yup.object({
@@ -43,6 +44,7 @@ const Inventories: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
     const [appliedSearch, setAppliedSearch] = useState(DEFAULTS.search);
     const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+    const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
     const [isSearchLoading, setIsSearchLoading] = useState(false);
 
     // ===== Modal + form =====
@@ -64,6 +66,7 @@ const Inventories: React.FC = () => {
         const urlSortOrder = (searchParams.get('sort_order') as 'asc' | 'desc') || DEFAULTS.sortOrder;
         const urlSearch = searchParams.get('search') || DEFAULTS.search;
         const urlBranch = searchParams.get('branch_id') || null;
+        const urlSupplier = searchParams.get('supplier_id') || null;
 
         setPage(urlPage);
         setPageSize(urlPageSize);
@@ -72,6 +75,7 @@ const Inventories: React.FC = () => {
         setAppliedSearch(urlSearch);
         setSearchQuery(urlSearch);
         setSelectedBranch(urlBranch);
+        setSelectedSupplier(urlSupplier);
     }, []);
 
     // ===== API dropdown =====
@@ -94,12 +98,13 @@ const Inventories: React.FC = () => {
         };
         if (appliedSearch) params.search = appliedSearch;
         if (selectedBranch) params.branch_id = selectedBranch;
+        if (selectedSupplier) params.supplier_id = selectedSupplier;
 
         return getApi(`${process.env.REACT_APP_API_URL}/api/inventories`, params);
     };
 
     const { data: inventoriesResponse, isLoading, refetch } = useQuery({
-        queryKey: ['inventories', { page, pageSize, sortKey, sortOrder, appliedSearch, selectedBranch }],
+        queryKey: ['inventories', { page, pageSize, sortKey, sortOrder, appliedSearch, selectedBranch, selectedSupplier }],
         queryFn: getInventories,
     });
 
@@ -114,6 +119,7 @@ const Inventories: React.FC = () => {
         sort_order: sortOrder,
         ...(appliedSearch ? { search: appliedSearch } : {}),
         ...(selectedBranch ? { branch_id: selectedBranch } : {}),
+        ...(selectedSupplier ? { supplier_id: selectedSupplier } : {}),
         ...overrides,
     });
 
@@ -156,6 +162,7 @@ const Inventories: React.FC = () => {
                 sort_order: sortOrder,
                 search: searchQuery,
                 ...(selectedBranch ? { branch_id: String(selectedBranch) } : {}),
+                ...(selectedSupplier ? { supplier_id: String(selectedSupplier) } : {}),
             },
             { replace: true }
         );
@@ -164,10 +171,11 @@ const Inventories: React.FC = () => {
     };
 
     const handleResetSearch = async () => {
-        if (!appliedSearch && !searchQuery && !selectedBranch) return;
+        if (!appliedSearch && !searchQuery && !selectedBranch && !selectedSupplier) return;
         setSearchQuery('');
         setAppliedSearch('');
         setSelectedBranch(null);
+        setSelectedSupplier(null);
         setPage(1);
         setSearchParams(
             {
@@ -247,6 +255,7 @@ const Inventories: React.FC = () => {
     const columns = [
         { key: 'id', title: 'ID', sortable: true, render: (v: string) => <span className="font-mono text-sm text-primary-600">#{v}</span> },
         { key: 'branch_name', title: 'Chi nhánh', sortable: true, render: (v: string) => <p className="font-medium text-gray-600">{v}</p> },
+        { key: 'supplier_name', title: 'Nhà cung cấp', sortable: true, render: (value: string, item: Inventory) => <p className="font-medium text-gray-600">{value}</p> },
         { key: 'product_name', title: 'Sản phẩm', sortable: true, render: (v: string, item: any) => <div><p>{v}</p><p className="text-blue-600 text-sm font-mono">SKU: {item.sku}</p></div> },
         { key: 'quantity', title: 'Tồn kho', sortable: true, render: (v: any, item: any) => <div><p>{v}</p><p className="text-blue-600 text-sm">Đặt: {item.reserved_stock}</p></div> },
         { key: 'actions', title: 'Hành động', render: (_: any, item: any) => <Button variant="outline" size="sm" className="text-red-600" onClick={() => confirmDeleteInventory(item.id)}>Xóa</Button> },
@@ -280,12 +289,38 @@ const Inventories: React.FC = () => {
                                         sort_order: sortOrder,
                                         ...(appliedSearch ? { search: appliedSearch } : {}),
                                         ...(val !== null ? { branch_id: String(val) } : {}),
+                                        ...(selectedSupplier ? { supplier_id: selectedSupplier } : {}),
                                     },
                                     { replace: true }
                                 );
                             }}
                             placeholder="Chọn chi nhánh"
                             defaultOptionLabel="Tất cả chi nhánh"
+                        />
+                    </div>
+
+                    <div className="w-64">
+                        <DropdownSelect
+                            data={suppliers}
+                            value={selectedSupplier}
+                            onChange={(val) => {
+                                setSelectedSupplier(val !== null ? String(val) : null);
+                                setPage(1);
+                                setSearchParams(
+                                    {
+                                        page: '1',
+                                        page_size: String(pageSize),
+                                        sort_field: sortKey,
+                                        sort_order: sortOrder,
+                                        ...(appliedSearch ? { search: appliedSearch } : {}),
+                                        ...(selectedBranch ? { branch_id: selectedBranch } : {}),
+                                        ...(val !== null ? { supplier_id: String(val) } : {}),
+                                    },
+                                    { replace: true }
+                                );
+                            }}
+                            placeholder="Chọn nhà cung cấp"
+                            defaultOptionLabel="Tất cả nhà cung cấp"
                         />
                     </div>
 
