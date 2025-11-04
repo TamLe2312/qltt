@@ -38,7 +38,7 @@ function TableServerPagination<T extends Record<string, any>>({
     columns,
     loading = false,
     preserveDataWhileLoading = true,
-    emptyMessage = 'No data available',
+    emptyMessage = 'Không có dữ liệu',
     onRowClick,
     className = '',
     getRowKey,
@@ -55,8 +55,6 @@ function TableServerPagination<T extends Record<string, any>>({
 }: TableServerPaginationProps<T>) {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const [cachedData, setCachedData] = useState<T[]>(data);
-
-    // console.log("loading: ", loading);
 
     useEffect(() => {
         if (!loading && data && data.length > 0) setCachedData(data);
@@ -171,7 +169,7 @@ function TableServerPagination<T extends Record<string, any>>({
             {loading && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center z-20 transition-opacity duration-200">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-500 border-b-transparent"></div>
-                    <p className="mt-2 text-sm text-gray-600">Loading...</p>
+                    <p className="mt-2 text-sm text-gray-600">Đang tải...</p>
                 </div>
             )}
 
@@ -179,19 +177,19 @@ function TableServerPagination<T extends Record<string, any>>({
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 text-sm">
                 <div className="text-gray-600">
                     {total === 0 ? (
-                        '0 results'
+                        '0 kết quả'
                     ) : (
                         <>
-                            Showing{' '}
+                            Hiển thị{' '}
                             <span className="font-medium">
                                 {(page - 1) * pageSize + 1}
                             </span>{' '}
-                            to{' '}
+                            đến{' '}
                             <span className="font-medium">
                                 {Math.min(page * pageSize, total)}
                             </span>{' '}
-                            of{' '}
-                            <span className="font-medium">{total}</span> results
+                            trong tổng số{' '}
+                            <span className="font-medium">{total}</span> kết quả
                         </>
                     )}
                 </div>
@@ -204,28 +202,28 @@ function TableServerPagination<T extends Record<string, any>>({
                     >
                         {[5, 10, 20, 50].map((size) => (
                             <option key={size} value={size}>
-                                {size} / page
+                                {size} / trang
                             </option>
                         ))}
                     </select>
 
-                    <div className="inline-flex gap-2">
+                    <div className="inline-flex items-center gap-2">
                         <button
                             className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                             disabled={page <= 1}
                             onClick={() => onPageChange?.(page - 1)}
                         >
-                            Prev
+                            Trước
                         </button>
                         <span className="px-2 text-gray-500">
-                            Page {page} / {totalPages}
+                            Trang {page} / {totalPages}
                         </span>
                         <button
                             className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                             disabled={page >= totalPages}
                             onClick={() => onPageChange?.(page + 1)}
                         >
-                            Next
+                            Tiếp
                         </button>
                     </div>
                 </div>
