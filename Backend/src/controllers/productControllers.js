@@ -4,7 +4,8 @@ const { deleteImages } = require("../middlewares/multerConfig.js");
 
 const getAllProducts = async (req, res) => {
   try {
-    const { limit, page, sortBy, sortOrder, search, category } = req.query;
+    const { limit, page, sortBy, sortOrder, search, category, category_id } =
+      req.query;
 
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
@@ -27,6 +28,11 @@ const getAllProducts = async (req, res) => {
 
     let whereClauses = ["p.deleted_at IS NULL"];
     let replacements = [];
+
+    if (category_id) {
+      whereClauses.push("p.category_id = ?");
+      replacements.push(category_id);
+    }
 
     if (category) {
       whereClauses.push("c.name COLLATE SQL_Latin1_General_CP1_CI_AI LIKE ?");

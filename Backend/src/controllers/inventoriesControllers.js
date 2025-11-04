@@ -47,7 +47,8 @@ const getAllInventories = async (req, res) => {
         i.id, 
         p.id AS product_id, p.name AS product_name, p.sku, 
         s.id AS supplier_id, s.name AS supplier_name, 
-        i.quantity, i.reserved_stock, 
+        (i.quantity - i.reserved_stock) AS quantity, 
+        i.reserved_stock, 
         b.id AS branch_id, b.name AS branch_name, i.created_at
       FROM inventories i
       JOIN products p ON i.product_id = p.id

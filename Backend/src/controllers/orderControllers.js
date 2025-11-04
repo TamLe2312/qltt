@@ -3,7 +3,16 @@ const { dbHeadOffice, getDbByBranchId } = require("../config/db.js");
 
 const getAllOrders = async (req, res) => {
   try {
-    const { branch_id, limit, page, sortBy, sortOrder, search } = req.query;
+    const {
+      branch_id,
+      limit,
+      page,
+      sortBy,
+      sortOrder,
+      search,
+      status,
+      user_id,
+    } = req.query;
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
     const offsetNum = (pageNum - 1) * limitNum;
@@ -24,6 +33,16 @@ const getAllOrders = async (req, res) => {
 
     let whereClauses = ["oc.deleted_at IS NULL AND oc.branch_id = ?"];
     let replacements = [branch_id];
+
+    if (status) {
+      whereClauses.push("oe.status = ?");
+      replacements.push(status);
+    }
+
+    if (user_id) {
+      whereClauses.push("oc.user_id = ?");
+      replacements.push(user_id);
+    }
 
     if (search) {
       const searchTerm = `%${search}%`;
@@ -53,6 +72,7 @@ const getAllOrders = async (req, res) => {
     FROM orders_core oc
     LEFT JOIN users u ON oc.user_id = u.id
     LEFT JOIN branches b ON oc.branch_id = b.id
+    LEFT JOIN orders_extra oe ON oc.id = oe.order_id
     WHERE ${whereString}`;
 
     const replacementsMain = [...replacements, offsetNum, limitNum];
@@ -95,7 +115,6 @@ const getAllOrders = async (req, res) => {
 const getOrdersStatistics = async (req, res) => {
   try {
     let { filters = {}, groupBy = "month" } = req.body;
-    console.log(filters, groupBy);
 
     const validGroups = ["day", "month", "quarter", "year"];
     if (!validGroups.includes(groupBy)) {

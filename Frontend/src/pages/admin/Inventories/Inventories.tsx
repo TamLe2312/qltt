@@ -11,6 +11,7 @@ import Swal from "sweetalert2";
 import * as Yup from "yup";
 import SearchInput from "../../../components/ui/search/SearchInput";
 import TableServerPagination from "../../../components/ui/data-display/TableServerPagination";
+import Card from "../../../components/ui/data-display/Card";
 
 // === Schema validate form ===
 const InventoryFormSchema = Yup.object({
@@ -24,6 +25,7 @@ const InventoryFormSchema = Yup.object({
 
 const Inventories: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -39,9 +41,6 @@ const Inventories: React.FC = () => {
     search: "",
   };
 
-  const [currentBranchId, setCurrentBranchId] = useState(
-    searchParams.get("branch_id") || DEFAULTS.branch_id
-  );
   const [page, setPage] = useState(DEFAULTS.page);
   const [limit, setLimit] = useState(DEFAULTS.limit);
   const [sortBy, setSortBy] = useState(DEFAULTS.sortBy);
@@ -62,7 +61,7 @@ const Inventories: React.FC = () => {
     };
 
     const stateParams = {
-      branch_id: currentBranchId,
+      branch_id: selectedBranch,
       page,
       limit,
       sortBy,
@@ -75,7 +74,7 @@ const Inventories: React.FC = () => {
     );
 
     if (isUrlDifferent) {
-      setCurrentBranchId(urlParams.branch_id);
+      setSelectedBranch(urlParams.branch_id);
       setPage(urlParams.page);
       setLimit(urlParams.limit);
       setSortBy(urlParams.sortBy);
@@ -92,7 +91,7 @@ const Inventories: React.FC = () => {
     if (searchParams.toString() === "" || isMissingDefaults) {
       setSearchParams(
         {
-          branch_id: currentBranchId,
+          branch_id: String(selectedBranch),
           page: String(page),
           limit: String(limit),
           sortBy: sortBy,
@@ -110,13 +109,13 @@ const Inventories: React.FC = () => {
     sortBy,
     sortOrder,
     searchQuery,
-    currentBranchId,
+    selectedBranch,
   ]);
 
   // === Lấy danh sách kho ===
   const getInventories = () => {
     const params: any = {
-      branch_id: currentBranchId,
+      branch_id: selectedBranch,
       page,
       limit: limit,
       sortBy: sortBy,
@@ -131,14 +130,14 @@ const Inventories: React.FC = () => {
   const { data: inventoriesResponse, isLoading } = useQuery({
     queryKey: [
       "inventories",
-      currentBranchId,
+      selectedBranch,
       page,
       limit,
       sortBy,
       sortOrder,
       searchQuery,
     ],
-    enabled: !!currentBranchId,
+    enabled: !!selectedBranch,
     queryFn: getInventories,
   });
   const inventories = inventoriesResponse?.data.items ?? [];
@@ -239,6 +238,22 @@ const Inventories: React.FC = () => {
     });
   };
 
+  const buildParams = (overrides = {}) => ({
+    page: String(page),
+    limit: String(limit),
+    sortBy: sortBy,
+    sortOrder: sortOrder,
+    ...(selectedBranch ? { branch_id: selectedBranch } : {}),
+    ...overrides,
+  });
+
+  const cleanParams = (params: Record<string, any>) => {
+    const cleaned: Record<string, string> = {};
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== "") cleaned[k] = String(v);
+    });
+    return cleaned;
+  };
   // === Validate form trước khi submit ===
   const handleValidate = async () => {
     try {
@@ -314,7 +329,7 @@ const Inventories: React.FC = () => {
     setPage(1);
 
     const newParams = {
-      branch_id: currentBranchId,
+      branch_id: String(selectedBranch),
       page: "1",
       limit: String(limit),
       sortBy: sortBy,
@@ -411,54 +426,59 @@ const Inventories: React.FC = () => {
     },
   ];
 
-  const branchOptions = [
-    { id: "1", name: "Chi nhánh 1" },
-    { id: "2", name: "Chi nhánh 2" },
-    { id: "3", name: "Chi nhánh 3" },
-  ];
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Kho hàng</h1>
           <p className="text-gray-600">Quản lý kho hàng của bạn</p>
-          <div className="space-x-2">
-            {branchOptions.map((branch) => (
-              <Button
-                key={branch.id}
-                className={"mt-2"}
-                onClick={() => handleBranchChange(branch.id)}
-              >
-                {branch.name}
-              </Button>
-            ))}
-          </div>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>Tạo mới</Button>
       </div>
-      <SearchInput
-        query={query}
-        setQuery={setQuery}
-        handleSearch={handleSearch}
-        handleClear={handleClear}
-      />
-      <TableServerPagination
-        data={inventories || []}
-        columns={columns}
-        loading={isLoading}
-        emptyMessage="Không tìm thấy sản phẩm nào"
-        page={page}
-        limit={limit}
-        total={total}
-        onPageChange={handlePageChange}
-        onLimitChange={handleLimitChange}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSortChange={handleSortChange}
-        preserveDataWhileLoading={true}
-      />
+      <Card>
+        <div className="flex items-start gap-2 w-full mb-3">
+          <div className="w-64">
+            {" "}
+            <DropdownSelect
+              data={branches}
+              value={selectedBranch}
+              onChange={(val) => {
+                const newVal = val ? String(val) : null;
+                setSelectedBranch(newVal);
+                setPage(1);
+                const params = buildParams({
+                  page: "1",
+                  branch_id: newVal || undefined,
+                });
+                setSearchParams(cleanParams(params), { replace: true });
+              }}
+              placeholder="Chọn chi nhánh"
+            />
+          </div>
 
+          <SearchInput
+            query={query}
+            setQuery={setQuery}
+            handleSearch={handleSearch}
+            handleClear={handleClear}
+          />
+        </div>
+        <TableServerPagination
+          data={inventories || []}
+          columns={columns}
+          loading={isLoading}
+          emptyMessage="Không tìm thấy sản phẩm nào"
+          page={page}
+          limit={limit}
+          total={total}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={handleSortChange}
+          preserveDataWhileLoading={true}
+        />
+      </Card>
       {/* Modal thêm kho */}
       <Modal
         isOpen={isModalOpen}

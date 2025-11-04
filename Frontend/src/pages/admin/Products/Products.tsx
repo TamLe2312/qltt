@@ -8,6 +8,8 @@ import Button from "../../../components/ui/form/Button";
 import TableServerPagination from "../../../components/ui/data-display/TableServerPagination";
 import SearchInput from "../../../components/ui/search/SearchInput";
 import toast from "react-hot-toast";
+import Card from "../../../components/ui/data-display/Card";
+import DropdownSelect from "../../../components/ui/form/DropdownSelect";
 
 const Products: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,6 +17,15 @@ const Products: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const { data: categoriesData, isLoading: loadingCategories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getApi(`${process.env.REACT_APP_API_URL}/api/categories`),
+  });
+  const [selectedCategory, setSelectedCategory] = useState<
+    string | number | null
+  >(null);
+
+  const categories = categoriesData?.data?.items ?? [];
   const DEFAULTS = {
     page: 1,
     limit: 20,
@@ -31,6 +42,7 @@ const Products: React.FC = () => {
     DEFAULTS.sortOrder
   );
   const [searchQuery, setSearchQuery] = useState(DEFAULTS.search);
+  const [appliedSearch, setAppliedSearch] = useState(DEFAULTS.search);
   const [category, setCategory] = useState(DEFAULTS.category);
   const [query, setQuery] = useState("");
   useEffect(() => {
@@ -63,6 +75,7 @@ const Products: React.FC = () => {
       setSortBy(urlParams.sortBy);
       setSortOrder(urlParams.sortOrder);
       setSearchQuery(urlParams.search);
+      setAppliedSearch(urlParams.search);
       setCategory(urlParams.category);
       return;
     }
@@ -80,7 +93,16 @@ const Products: React.FC = () => {
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, page, limit, sortBy, sortOrder, searchQuery]);
+  }, [
+    searchParams,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+    searchQuery,
+    appliedSearch,
+    selectedCategory,
+  ]);
   // Function GET Products
   const getProducts = () => {
     const params: any = {
@@ -95,6 +117,9 @@ const Products: React.FC = () => {
     if (category) {
       params.category = category;
     }
+    if (selectedCategory) {
+      params.category_id = selectedCategory;
+    }
     return getApi(`${process.env.REACT_APP_API_URL}/api/products`, params);
   };
 
@@ -108,6 +133,7 @@ const Products: React.FC = () => {
       sortOrder,
       searchQuery,
       category,
+      selectedCategory,
     ],
     queryFn: getProducts,
   });
@@ -201,7 +227,7 @@ const Products: React.FC = () => {
     setPage(1);
     const currentParams = Object.fromEntries(searchParams.entries());
     currentParams.search = query;
-
+    setAppliedSearch(query);
     setSearchParams(currentParams, { replace: true });
   };
 
@@ -210,7 +236,7 @@ const Products: React.FC = () => {
 
     const currentParams = Object.fromEntries(searchParams.entries());
     delete currentParams.search;
-
+    setAppliedSearch("");
     setSearchParams(currentParams, { replace: true });
   };
 
@@ -337,27 +363,55 @@ const Products: React.FC = () => {
           </Button>
         </div>
       </div>
-      <SearchInput
-        query={query}
-        setQuery={setQuery}
-        handleSearch={handleSearch}
-        handleClear={handleClear}
-      />
-      <TableServerPagination
-        data={products || []}
-        columns={columns}
-        loading={isLoading}
-        emptyMessage="Không tìm thấy sản phẩm nào"
-        page={page}
-        limit={limit}
-        total={total}
-        onPageChange={handlePageChange}
-        onLimitChange={handleLimitChange}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSortChange={handleSortChange}
-        preserveDataWhileLoading={true}
-      />
+      <Card>
+        <div className="flex items-start gap-2 w-full mb-3">
+          <div className="w-64">
+            <DropdownSelect
+              data={categories}
+              value={selectedCategory}
+              onChange={(val) => {
+                setSelectedCategory(val);
+                setPage(1);
+                setSearchParams(
+                  {
+                    page: "1",
+                    limit: String(limit),
+                    sortBy: sortBy,
+                    sortOrder: sortOrder,
+                    ...(appliedSearch ? { search: appliedSearch } : {}),
+                    ...(val ? { category_id: String(val) } : {}),
+                  },
+                  { replace: true }
+                );
+              }}
+              loading={loadingCategories}
+              placeholder="Chọn danh mục"
+              defaultOptionLabel="Tất cả danh mục"
+            />
+          </div>
+          <SearchInput
+            query={query}
+            setQuery={setQuery}
+            handleSearch={handleSearch}
+            handleClear={handleClear}
+          />
+        </div>
+        <TableServerPagination
+          data={products || []}
+          columns={columns}
+          loading={isLoading}
+          emptyMessage="Không tìm thấy sản phẩm nào"
+          page={page}
+          limit={limit}
+          total={total}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={handleSortChange}
+          preserveDataWhileLoading={true}
+        />
+      </Card>
     </div>
   );
 };

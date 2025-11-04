@@ -7,14 +7,28 @@ import Button from "../../../components/ui/form/Button";
 import toast from "react-hot-toast";
 import SearchInput from "../../../components/ui/search/SearchInput";
 import TableServerPagination from "../../../components/ui/data-display/TableServerPagination";
+import Card from "../../../components/ui/data-display/Card";
+import DropdownSelect from "../../../components/ui/form/DropdownSelect";
 
 const Orders: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const handleBranchChange = (id: string) => {
-    setSearchParams({ branch_id: id });
-  };
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const statusOptions = [
+    { id: "Pending", name: "Chờ xác nhận" },
+    { id: "Confirmed", name: "Đã xác nhận" },
+    { id: "Processing", name: "Đang xử lý" },
+    { id: "Shipped", name: "Đã giao" },
+    { id: "Delivered", name: "Đã giao hàng" },
+    { id: "Completed", name: "Hoàn tất" },
+    { id: "Canceled", name: "Đã hủy" },
+    { id: "Failed", name: "Thất bại" },
+    { id: "Refunded", name: "Đã hoàn tiền" },
+  ];
+
   const DEFAULTS = {
     branch_id: "1",
     page: 1,
@@ -24,9 +38,6 @@ const Orders: React.FC = () => {
     search: "",
   };
 
-  const [currentBranchId, setCurrentBranchId] = useState(
-    searchParams.get("branch_id") || DEFAULTS.branch_id
-  );
   const [page, setPage] = useState(DEFAULTS.page);
   const [limit, setLimit] = useState(DEFAULTS.limit);
   const [sortBy, setSortBy] = useState(DEFAULTS.sortBy);
@@ -44,15 +55,19 @@ const Orders: React.FC = () => {
       sortOrder:
         (searchParams.get("sortOrder") as "asc" | "desc") || DEFAULTS.sortOrder,
       search: searchParams.get("search") || DEFAULTS.search,
+      status: searchParams.get("status") || null,
+      user_id: searchParams.get("user_id") || null,
     };
 
     const stateParams = {
-      branch_id: currentBranchId,
       page,
       limit,
       sortBy,
       sortOrder,
       search: searchQuery,
+      status: selectedStatus,
+      branch_id: selectedBranch,
+      user_id: selectedUser,
     };
 
     const isUrlDifferent = Object.keys(urlParams).some(
@@ -60,12 +75,14 @@ const Orders: React.FC = () => {
     );
 
     if (isUrlDifferent) {
-      setCurrentBranchId(urlParams.branch_id);
       setPage(urlParams.page);
       setLimit(urlParams.limit);
       setSortBy(urlParams.sortBy);
       setSortOrder(urlParams.sortOrder);
       setSearchQuery(urlParams.search);
+      setSelectedStatus(urlParams.status);
+      setSelectedBranch(urlParams.branch_id);
+      setSelectedUser(urlParams.user_id);
       return;
     }
 
@@ -77,7 +94,7 @@ const Orders: React.FC = () => {
     if (searchParams.toString() === "" || isMissingDefaults) {
       setSearchParams(
         {
-          branch_id: currentBranchId,
+          branch_id: String(selectedBranch),
           page: String(page),
           limit: String(limit),
           sortBy: sortBy,
@@ -95,12 +112,14 @@ const Orders: React.FC = () => {
     sortBy,
     sortOrder,
     searchQuery,
-    currentBranchId,
+    selectedStatus,
+    selectedBranch,
+    selectedUser,
   ]);
   // Function GET Orders
   const getOrders = () => {
     const params: any = {
-      branch_id: currentBranchId,
+      branch_id: selectedBranch,
       page,
       limit: limit,
       sortBy: sortBy,
@@ -109,6 +128,8 @@ const Orders: React.FC = () => {
     if (searchQuery) {
       params.search = searchQuery;
     }
+    if (selectedStatus) params.status = selectedStatus;
+    if (selectedUser) params.user_id = selectedUser;
     return getApi(`${process.env.REACT_APP_API_URL}/api/orders`, params);
   };
 
@@ -119,15 +140,17 @@ const Orders: React.FC = () => {
   } = useQuery({
     queryKey: [
       "orders",
-      currentBranchId,
       page,
       limit,
       sortBy,
       sortOrder,
       searchQuery,
+      selectedStatus,
+      selectedBranch,
+      selectedUser,
     ],
     queryFn: getOrders,
-    enabled: !!currentBranchId,
+    enabled: !!selectedBranch,
   });
 
   const orders = apiResponse?.data.items ?? [];
@@ -212,7 +235,7 @@ const Orders: React.FC = () => {
     setPage(1);
 
     const newParams = {
-      branch_id: currentBranchId,
+      branch_id: String(selectedBranch),
       page: "1",
       limit: String(limit),
       sortBy: sortBy,
@@ -232,6 +255,40 @@ const Orders: React.FC = () => {
     setSearchParams(currentParams, { replace: true });
   };
 
+  const { data: apiBranchesResponse } = useQuery({
+    queryKey: ["branches"],
+    queryFn: () => getApi(`${process.env.REACT_APP_API_URL}/api/branches`),
+  });
+
+  const branchOptions = apiBranchesResponse?.data?.items ?? [];
+
+  const { data: apiUsersResponse } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => getApi(`${process.env.REACT_APP_API_URL}/api/users`),
+  });
+  const userOptions = apiUsersResponse?.data?.items ?? [];
+
+  // ============================================================
+  // Helpers
+  // ============================================================
+  const buildParams = (overrides = {}) => ({
+    page: String(page),
+    limit: String(limit),
+    sortBy: sortBy,
+    sortOrder: sortOrder,
+    ...(selectedStatus ? { status: selectedStatus } : {}),
+    ...(selectedBranch ? { branch_id: selectedBranch } : {}),
+    ...(selectedUser ? { user_id: selectedUser } : {}),
+    ...overrides,
+  });
+
+  const cleanParams = (params: Record<string, any>) => {
+    const cleaned: Record<string, string> = {};
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== "") cleaned[k] = String(v);
+    });
+    return cleaned;
+  };
   // Định nghĩa giao diện bảng Orders
   const columns = [
     {
@@ -302,7 +359,7 @@ const Orders: React.FC = () => {
             variant="outline"
             onClick={() =>
               navigate(
-                `/admin/orders/${item.id}/products?branch_id=${currentBranchId}`
+                `/admin/orders/${item.id}/products?branch_id=${selectedBranch}`
               )
             }
           >
@@ -313,11 +370,6 @@ const Orders: React.FC = () => {
     },
   ];
 
-  const branchOptions = [
-    { id: "1", name: "Chi nhánh 1" },
-    { id: "2", name: "Chi nhánh 2" },
-    { id: "3", name: "Chi nhánh 3" },
-  ];
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -325,17 +377,6 @@ const Orders: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Đơn hàng</h1>
           <p className="text-gray-600">Quản lý đơn hàng của bạn</p>
-          <div className="space-x-2">
-            {branchOptions.map((branch) => (
-              <Button
-                key={branch.id}
-                className={"mt-2"}
-                onClick={() => handleBranchChange(branch.id)}
-              >
-                {branch.name}
-              </Button>
-            ))}
-          </div>
         </div>
         <div className="space-x-2">
           <Button onClick={() => navigate(`/admin/orders/create`)}>
@@ -346,29 +387,90 @@ const Orders: React.FC = () => {
           </Button>
         </div>
       </div>
+      <Card>
+        <div className="flex flex-wrap items-start gap-2 w-full mb-4">
+          <div className="w-48">
+            <DropdownSelect
+              data={statusOptions}
+              value={selectedStatus}
+              onChange={(val) => {
+                const newVal = val ? String(val) : null;
+                setSelectedStatus(newVal);
+                setPage(1);
+                const params = buildParams({
+                  page: "1",
+                  status: newVal || undefined,
+                });
+                setSearchParams(cleanParams(params), { replace: true });
+              }}
+              placeholder="Chọn trạng thái"
+              defaultOptionLabel="Tất cả trạng thái"
+            />
+          </div>
 
-      {/* Orders Table */}
-      <SearchInput
-        query={query}
-        setQuery={setQuery}
-        handleSearch={handleSearch}
-        handleClear={handleClear}
-      />
-      <TableServerPagination
-        data={orders || []}
-        columns={columns}
-        loading={isLoading}
-        emptyMessage="Không tìm thấy sản phẩm nào"
-        page={page}
-        limit={limit}
-        total={total}
-        onPageChange={handlePageChange}
-        onLimitChange={handleLimitChange}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSortChange={handleSortChange}
-        preserveDataWhileLoading={true}
-      />
+          <div className="w-56">
+            <DropdownSelect
+              data={branchOptions}
+              value={selectedBranch}
+              onChange={(val) => {
+                const newVal = val ? String(val) : null;
+                setSelectedBranch(newVal);
+                setPage(1);
+                const params = buildParams({
+                  page: "1",
+                  branch_id: newVal || undefined,
+                });
+                setSearchParams(cleanParams(params), { replace: true });
+              }}
+              placeholder="Chọn chi nhánh"
+            />
+          </div>
+
+          <div className="w-56">
+            <DropdownSelect
+              valueKey="id"
+              labelKey="full_name"
+              data={userOptions}
+              value={selectedUser}
+              onChange={(val) => {
+                const newVal = val ? String(val) : null;
+                setSelectedUser(newVal);
+                setPage(1);
+                const params = buildParams({
+                  page: "1",
+                  user_id: newVal || undefined,
+                });
+                setSearchParams(cleanParams(params), { replace: true });
+              }}
+              placeholder="Chọn khách hàng"
+              defaultOptionLabel="Tất cả khách hàng"
+            />
+          </div>
+          <div className="flex-1 min-w-[250px]">
+            <SearchInput
+              query={query}
+              setQuery={setQuery}
+              handleSearch={handleSearch}
+              handleClear={handleClear}
+            />
+          </div>
+        </div>
+        <TableServerPagination
+          data={orders || []}
+          columns={columns}
+          loading={isLoading}
+          emptyMessage="Không tìm thấy sản phẩm nào"
+          page={page}
+          limit={limit}
+          total={total}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={handleSortChange}
+          preserveDataWhileLoading={true}
+        />
+      </Card>
     </div>
   );
 };
