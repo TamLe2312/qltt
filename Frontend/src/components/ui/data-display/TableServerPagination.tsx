@@ -207,12 +207,12 @@ function TableServerPagination<T extends Record<string, any>>({
             "0 results"
           ) : (
             <>
-              Showing{" "}
+              Hiển thị{" "}
               <span className="font-medium">{(page - 1) * limit + 1}</span> to{" "}
               <span className="font-medium">
                 {Math.min(page * limit, total)}
               </span>{" "}
-              of <span className="font-medium">{total}</span> results
+              tới <span className="font-medium">{total}</span> kết quả
             </>
           )}
         </div>
@@ -225,7 +225,7 @@ function TableServerPagination<T extends Record<string, any>>({
           >
             {[5, 10, 20, 50].map((size) => (
               <option key={size} value={size}>
-                {size} / page
+                {size} / Trang
               </option>
             ))}
           </select>
@@ -236,17 +236,17 @@ function TableServerPagination<T extends Record<string, any>>({
               disabled={page <= 1}
               onClick={() => onPageChange?.(page - 1)}
             >
-              Prev
+              Trước
             </button>
             <span className="px-2 text-gray-500">
-              Page {page} / {totalPages}
+              Trang {page} / {totalPages}
             </span>
             <button
               className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               disabled={page >= totalPages}
               onClick={() => onPageChange?.(page + 1)}
             >
-              Next
+              Sau
             </button>
           </div>
         </div>

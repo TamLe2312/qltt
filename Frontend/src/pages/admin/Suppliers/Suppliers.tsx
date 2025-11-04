@@ -360,7 +360,7 @@ const Suppliers: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Nhà cung cấp</h1>
-          <p className="text-gray-600">Quản lý chi nhánh của bạn</p>
+          <p className="text-gray-600">Quản lý nhà cung cấp của bạn</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>Tạo mới</Button>
       </div>

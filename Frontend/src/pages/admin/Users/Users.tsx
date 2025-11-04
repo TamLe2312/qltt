@@ -3,8 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { getApi, deleteApi, postApi } from "../../../utils";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import Button from "../../../components/ui/form/Button";
-import Card from "antd/es/card/Card";
-import Table from "../../../components/ui/data-display/Table";
 import { User } from "../../../types";
 import Modal from "../../../components/ui/data-display/Modal";
 import Input from "../../../components/ui/form/Input";
@@ -132,6 +130,12 @@ const Users: React.FC = () => {
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  const statusUserOptions = [
+    { id: "Active", name: "Đang hoạt động" },
+    { id: "Inactive", name: "Ngừng hoạt động" },
+    { id: "Blocked", name: "Đã bị chặn" },
+  ];
 
   // Mutation xóa user sử dụng deleteApi
   const deleteUserMutation = useMutation({
@@ -280,17 +284,19 @@ const Users: React.FC = () => {
       key: "status",
       title: "Trạng thái",
       sortable: true,
-      render: (value: any) => (
-        <div>
+      render: (value: any) => {
+        const status = statusUserOptions.find((option) => option.id === value);
+        const displayName = status?.name ?? value;
+        return (
           <span
             className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
               value
             )}`}
           >
-            {value.charAt(0).toUpperCase() + value.slice(1)}
+            {displayName}
           </span>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "created_at",

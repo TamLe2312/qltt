@@ -162,23 +162,23 @@ const Orders: React.FC = () => {
   // Màu tùy chỉnh cho trạng thái Order
   const getStatusColor = (status: Order["status"]) => {
     switch (status) {
-      case "pending":
+      case "Pending":
         return "bg-yellow-100 text-yellow-800";
-      case "confirmed":
+      case "Confirmed":
         return "bg-indigo-100 text-indigo-800";
-      case "processing":
+      case "Processing":
         return "bg-blue-100 text-blue-800";
-      case "shipped":
+      case "Shipped":
         return "bg-purple-100 text-purple-800";
-      case "delivered":
+      case "Delivered":
         return "bg-green-100 text-green-800";
-      case "canceled":
+      case "Canceled":
         return "bg-red-100 text-red-800";
-      case "failed":
+      case "Failed":
         return "bg-pink-100 text-pink-800";
-      case "refunded":
+      case "Refunded":
         return "bg-teal-100 text-teal-800";
-      case "completed":
+      case "Completed":
         return "bg-lime-100 text-lime-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -339,15 +339,19 @@ const Orders: React.FC = () => {
       key: "status",
       title: "Trạng thái",
       sortable: true,
-      render: (value: Order["status"]) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-            value
-          )}`}
-        >
-          {value.charAt(0).toUpperCase() + value.slice(1)}
-        </span>
-      ),
+      render: (value: Order["status"]) => {
+        const status = statusOptions.find((option) => option.id === value);
+        const displayName = status?.name ?? value;
+        return (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+              value
+            )}`}
+          >
+            {displayName}
+          </span>
+        );
+      },
     },
     {
       key: "actions",

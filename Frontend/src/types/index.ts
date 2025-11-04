@@ -22,16 +22,16 @@ export interface Order {
   user_id: string;
   branch_id: string;
   status:
-    | "pending"
-    | "processing"
-    | "shipped"
-    | "delivered"
-    | "completed"
-    | "cancelled"
-    | "failed"
-    | "refunded"
-    | "confirmed"
-    | "canceled";
+    | "Pending"
+    | "Processing"
+    | "Shipped"
+    | "Delivered"
+    | "Completed"
+    | "Cancelled"
+    | "Failed"
+    | "Refunded"
+    | "Confirmed"
+    | "Canceled";
   note: string;
   total_amount: number;
   street: string;
@@ -85,7 +85,7 @@ export interface Customer {
   email: string;
   phone?: string;
   avatar?: string;
-  status: "active" | "inactive";
+  status: "Active" | "Inactive" | "Blocked";
   totalOrders: number;
   totalSpent: number;
   createdAt: string;
@@ -97,7 +97,7 @@ export interface User {
   full_name: string;
   email: string;
   phone: string;
-  status: "Active" | "Inactive";
+  status: "Active" | "Inactive" | "Blocked";
 }
 
 export interface DashboardStats {
